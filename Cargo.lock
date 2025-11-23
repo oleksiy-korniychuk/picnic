@@ -2317,17 +2317,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "guns-germs-steel"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "noise",
- "pathfinding",
- "rand 0.9.2",
- "rand_pcg",
-]
-
-[[package]]
 name = "half"
 version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3300,6 +3289,17 @@ dependencies = [
  "indexmap",
  "serde",
  "serde_derive",
+]
+
+[[package]]
+name = "picnic"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "noise",
+ "pathfinding",
+ "rand 0.9.2",
+ "rand_pcg",
 ]
 
 [[package]]

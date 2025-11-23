@@ -1,5 +1,3 @@
-use bevy::prelude::Color;
-
 // --- Game Constants ---
 pub const GRID_WIDTH: usize = 700;
 pub const GRID_HEIGHT: usize = 400;
@@ -14,38 +12,7 @@ pub const MIN_ZOOM: f32 = 0.1;
 pub const ZOOM_SPEED: f32 = 0.1;
 pub const CAMERA_PAN_SPEED: f32 = 400.0;
 
-// --- World Constants ---
+// --- World Generation Constants ---
 pub const WATER_LEVEL: f32 = 0.3; // Tiles below this are lakes
 pub const SCALE: f64 = 0.02;      // Controls how zoomed in/out the noise is
-pub const WHEAT_SCALE: f64 = 0.07; // Controls wheat patch size - smaller = larger patches
-pub const WHEAT_THRESHOLD: f32 = 0.7; // Noise value above which wheat spawns
-
-// --- Creature Constants ---
-pub const MOVE_COST: i32 = 300;
-pub const LIVE_COST: i32 = 70;
-pub const WORK_COST: i32 = 20;
-pub const PREGNANT_COST: i32 = 10000;
-pub const HUMAN_MAX_CALORIES: i32 = 25000;
-pub const HUMAN_PREGNANCY_DURATION: u32 = 200;
-pub const BAND_RADIUS: i32 = 10;
-
-// --- Plant Constants ---
-pub const WHEAT_NUTRIENTS: i32 = 5000;
-
-
-// --- Visual Constants ---
-pub const HEADBAND_COLORS: [Color; 12] = [
-        Color::srgb(1.0, 0.0, 0.0),     // Red
-        Color::srgb(0.0, 1.0, 0.0),     // Green
-        Color::srgb(0.0, 0.0, 1.0),     // Blue
-        Color::srgb(1.0, 1.0, 0.0),     // Yellow
-        Color::srgb(1.0, 0.0, 1.0),     // Magenta
-        Color::srgb(0.0, 1.0, 1.0),     // Cyan
-        Color::srgb(1.0, 0.5, 0.0),     // Orange
-        Color::srgb(0.5, 0.0, 1.0),     // Purple
-        Color::srgb(1.0, 1.0, 1.0),     // White
-        Color::srgb(0.0, 0.0, 0.0),     // Black
-        Color::srgb(0.5, 0.5, 0.5),     // Gray
-        Color::srgb(1.0, 0.0, 0.5),     // Pink
-    ];
     

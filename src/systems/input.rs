@@ -2,100 +2,20 @@ use bevy::prelude::*;
 use bevy::input::mouse::{
     MouseScrollUnit,
     MouseWheel,
-    MouseButton,
 };
+use bevy::app::AppExit;
 
 use crate::constants::*;
 use crate::resources::{
-    game_grid::SpatialGrid,
     camera::{CameraZoom, CameraPosition},
-    ui_elements::{BandCenterVisualizationEnabled, LeftPanelState},
-    band_center::{BandCenter, BandCenterMode},
 };
-use crate::components::components::*;
 
-
-pub fn cursor_click_system(
-    mut commands: Commands,
-    windows: Query<&Window>,
-    cameras: Query<(&Camera, &GlobalTransform)>,
-    mouse_input: Res<ButtonInput<MouseButton>>,
-    creature_query: Query<(Entity, &Position, &Calories), With<CreatureMarker>>,
-    plant_query: Query<(&Position, &FoodSource, &PlantMarker)>,
-    grid: Res<SpatialGrid>,
-    mut band_center: ResMut<BandCenter>,
-    mut band_center_mode: ResMut<BandCenterMode>,
-    mut panel_state: ResMut<LeftPanelState>,
-    // Ensure only one creature has path visualization at a time
-    creatures_with_viz: Query<Entity, (With<CreatureMarker>, With<PathVisualizationEnabled>)>,
-) {
-    // Only handle left mouse button clicks
-    if !mouse_input.just_pressed(MouseButton::Left) {
-        return;
-    }
-
-    if let Some(world_position) = cast_cursor_position(windows, cameras) {
-        let tile_x = (world_position.x / TILE_SIZE).floor() + GRID_WIDTH as f32 / 2.0;
-        let tile_y = (world_position.y / TILE_SIZE).floor() + GRID_HEIGHT as f32 / 2.0;
-
-        let position = Position { x: tile_x as i32, y: tile_y as i32 };
-
-        // Check if we're clicking on valid grid coordinates
-        if position.x >= 0 && position.x < GRID_WIDTH as i32 && position.y >= 0 && position.y < GRID_HEIGHT as i32 {
-            let mut clicked_creature = false;
-            
-            if let Some(entities) = grid.0.get(&position) {
-                for entity in entities.iter() {
-                    // Handle creature clicks - toggle path visualization
-                    if let Ok((creature_entity, position, calories)) = creature_query.get(*entity) {
-                        clicked_creature = true;
-                        info!("Clicked creature - Entity: {:?}, Position: {:?}, Calories: {:?}", creature_entity, position, calories);
-
-                        // Select creature and ensure exclusive path visualization
-                        // Remove viz from any previously visualized creatures
-                        for other in creatures_with_viz.iter() {
-                            if other != creature_entity {
-                                commands.entity(other).remove::<PathVisualizationEnabled>();
-                            }
-                        }
-
-                        *panel_state = LeftPanelState::Creature(creature_entity);
-                        commands.entity(creature_entity).insert(PathVisualizationEnabled);
-                        info!("Selected creature {:?}", creature_entity);
-                    }
-                    
-                    // Still log plant info for debugging
-                    if let Ok((position, food_source, plant_marker)) = plant_query.get(*entity) {
-                        info!("Clicked plant - Entity: {:?}, Position: {:?}, Nutrition: {:?}, PlantType: {:?}", entity, position, food_source.nutrition_value, plant_marker.plant_type);
-                    }
-                }
-            }
-            
-            // If we didn't click on a creature, set band center to manual mode at this position
-            if !clicked_creature {
-                *panel_state = LeftPanelState::None;
-                *band_center_mode = BandCenterMode::Manual(position);
-                band_center.0 = position;
-                info!("Set band center to manual mode at position: {:?}", position);
-            }
-        }
-    }
-}
-
-pub fn clear_selection_on_escape_system(
+pub fn exit_on_escape_system(
     keyboard: Res<ButtonInput<KeyCode>>,
-    mut panel_state: ResMut<LeftPanelState>,
-    mut creatures_with_viz: Query<(Entity, &mut PathVisualizationEnabled), With<CreatureMarker>>,
-    mut commands: Commands,
+    mut exit: EventWriter<AppExit>,
 ) {
     if keyboard.just_pressed(KeyCode::Escape) {
-        if let LeftPanelState::Creature(entity) = *panel_state {
-            *panel_state = LeftPanelState::None;
-            // Remove visualization from the previously selected creature
-            if creatures_with_viz.get_mut(entity).is_ok() {
-                commands.entity(entity).remove::<PathVisualizationEnabled>();
-            }
-        }
+        exit.write(AppExit::Success);
     }
 }
 
@@ -208,29 +128,3 @@ pub fn camera_pan_system(
 }
 
 
-pub fn band_center_toggle_system(
-    keys: Res<ButtonInput<KeyCode>>,
-    mut viz_enabled: ResMut<BandCenterVisualizationEnabled>,
-) {
-    if keys.just_pressed(KeyCode::KeyB) {
-        viz_enabled.0 = !viz_enabled.0;
-        info!("Band center visualization toggled: {}", viz_enabled.0);
-    }
-}
-
-// --- Helper Functions ---
-
-pub fn cast_cursor_position(
-    windows: Query<&Window>,
-    cameras: Query<(&Camera, &GlobalTransform)>,
-) -> Option<Vec2> {
-    if let Ok((camery, position)) = cameras.single() {
-        return windows
-            .single()
-            .map(|window| window.cursor_position())
-            .unwrap_or_default()
-            .map(|cursor| camery.viewport_to_world_2d(position, cursor))
-            .map(|result| result.unwrap());
-    }
-    None
-}
