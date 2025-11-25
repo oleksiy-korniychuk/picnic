@@ -4,19 +4,58 @@
 Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using bolts, collect items/artifacts, and extract safely. Inspired by Roadside Picnic.
 
 ## Development Priority
-1. Tilemap editor (enables all other work)
-2. Core turn-based engine
+1. ✅ **Tilemap editor** (COMPLETE)
+2. ⏳ Core turn-based engine (IN PROGRESS)
 3. Movement & item systems
 4. Anomaly mechanics
 5. Win/loss conditions
 
+## Implementation Status
+
+### ✅ Completed: Tilemap Editor (v1.0)
+**Architecture:**
+- Separated terrain layer (Floor/Wall) from entity layer (Anomalies/Items/Markers)
+- Dynamic grid sizing - defaults to 25x25, supports any size on load
+- ECS-based: tiles and entities are proper Bevy entities with Position components
+
+**Controls:**
+- `F2` - Toggle between Running and Editing modes
+- `Tab` - Switch between Terrain and Entity placement modes
+- `1-2` - Select terrain (1=Floor, 2=Wall)
+- `3-9` - Select entities:
+  - 3: Gravitational Anomaly
+  - 4: Philosopher's Stone
+  - 5: Rust Anomaly
+  - 6: Player Start
+  - 7: Exit
+  - 8: Lamp Post
+  - 9: Fully Empty (artifact)
+- `Left Click` - Place selected terrain/entity
+- `Right Click` - Delete entity or reset tile to Floor
+- `F3` - Quick save to `assets/maps/current.json`
+- `F4` - Quick load from `assets/maps/current.json`
+
+**Visual Feedback:**
+- Gray tiles for Floor, dark gray for Walls
+- Color-coded entities (purple/gold/orange for anomalies, green for start, blue for exit)
+- White semi-transparent cursor highlight showing current grid position
+- Minimal HUD displaying: mode, current selection, cursor coordinates
+
+**Technical Implementation:**
+- JSON serialization via serde for map save/load
+- Automatic tile/entity sprite reload on map load
+- Keyboard-only interface (no complex UI forms)
+- Grid coordinates properly convert to/from world space
+- Files: `src/systems/editor.rs`, `src/systems/rendering.rs`, `src/resources/map_data.rs`
+
 ## Core Systems
 
-### 1. Tilemap Editor (First Deliverable)
+### 1. Tilemap Editor ✅ COMPLETE
 - **Access**: In-game via hotkey (F2)
-- **Functionality**: Load, edit, save 25x25 tile maps
-- **Placeable Elements**: Walls, floors, anomalies, items, player start/exit, structures (lamp posts, etc.)
-- **Format**: JSON files
+- **Functionality**: Load, edit, save dynamic-sized tile maps (default 25x25)
+- **Placeable Elements**: Walls, floors, anomalies, items, player start/exit, structures (lamp posts)
+- **Format**: JSON files (serde serialization)
+- **Implementation**: See "Implementation Status" section above for full details
 
 ### 2. Turn-Based Engine
 - **Input**: 4-directional movement (WASD keyboard)

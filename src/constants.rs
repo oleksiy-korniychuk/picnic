@@ -1,6 +1,6 @@
 // --- Game Constants ---
-pub const GRID_WIDTH: usize = 700;
-pub const GRID_HEIGHT: usize = 400;
+pub const GRID_WIDTH: usize = 25;
+pub const GRID_HEIGHT: usize = 25;
 pub const TILE_SIZE: f32 = 32.0;
 pub const TICK_RATE_HZ: f64 = 2.0;
 

@@ -10,6 +10,7 @@ pub fn toggle_pause_system(
         match current_state.get() {
             GameState::Running => next_state.set(GameState::Paused),
             GameState::Paused => next_state.set(GameState::Running),
+            GameState::Editing => {}, // Ignore space in editor mode
         }
     }
 }

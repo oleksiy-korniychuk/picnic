@@ -3,3 +3,5 @@ pub mod game_grid;
 pub mod ui_elements;
 pub mod seed;
 pub mod camera;
+pub mod editor_state;
+pub mod map_data;
