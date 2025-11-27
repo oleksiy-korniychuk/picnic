@@ -36,7 +36,7 @@ pub fn editor_toggle_system(
 ) {
     if keyboard.just_pressed(KeyCode::F2) {
         match current_state.get() {
-            GameState::Running | GameState::Paused => {
+            GameState::Running => {
                 next_state.set(GameState::Editing);
             }
             GameState::Editing => {

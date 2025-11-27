@@ -5,3 +5,5 @@ pub mod seed;
 pub mod camera;
 pub mod editor_state;
 pub mod map_data;
+pub mod turn_state;
+pub mod message_log;

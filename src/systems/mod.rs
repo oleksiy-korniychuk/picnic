@@ -3,3 +3,7 @@ pub mod setup;
 pub mod input;
 pub mod editor;
 pub mod rendering;
+pub mod player;
+pub mod turn_based_input;
+pub mod turn_processor;
+pub mod hud;

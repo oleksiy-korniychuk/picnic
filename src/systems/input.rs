@@ -6,10 +6,12 @@ use bevy::input::mouse::{
 use bevy::app::AppExit;
 
 use crate::constants::*;
+use crate::components::components::{Player, Position};
 use crate::resources::{
     camera::{CameraZoom, CameraPosition},
     game_grid::GameGrid,
 };
+use crate::systems::rendering::grid_to_world;
 
 pub fn exit_on_escape_system(
     keyboard: Res<ButtonInput<KeyCode>>,
@@ -130,4 +132,34 @@ pub fn camera_pan_system(
     }
 }
 
+/// Automatically centers camera on player position during Running mode
+pub fn camera_follow_player_system(
+    player_query: Query<&Position, With<Player>>,
+    grid: Res<GameGrid>,
+    mut camera_position: ResMut<CameraPosition>,
+    camera_query: Query<Entity, With<Camera2d>>,
+    mut commands: Commands,
+) {
+    // Get player position
+    let Ok(player_pos) = player_query.single() else {
+        return;
+    };
 
+    // Convert grid position to world coordinates
+    let world_pos = grid_to_world(
+        player_pos.x as usize,
+        player_pos.y as usize,
+        grid.width,
+        grid.height,
+    );
+
+    // Update camera position resource
+    camera_position.0 = world_pos;
+
+    // Apply to camera transform
+    if let Ok(camera_entity) = camera_query.single() {
+        commands.entity(camera_entity).insert(Transform::from_translation(
+            world_pos.extend(0.0)
+        ));
+    }
+}

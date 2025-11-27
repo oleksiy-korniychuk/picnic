@@ -5,10 +5,11 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 
 ## Development Priority
 1. ✅ **Tilemap editor** (COMPLETE)
-2. ⏳ Core turn-based engine (IN PROGRESS)
-3. Movement & item systems
-4. Anomaly mechanics
-5. Win/loss conditions
+2. ✅ **Core turn-based engine** (COMPLETE)
+3. ✅ **HUD Display** (COMPLETE)
+4. ⏳ Item & inventory systems (IN PROGRESS)
+5. Anomaly mechanics (Philosopher's Stone, Rust)
+6. Win/loss conditions
 
 ## Implementation Status
 
@@ -48,6 +49,90 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 - Grid coordinates properly convert to/from world space
 - Files: `src/systems/editor.rs`, `src/systems/rendering.rs`, `src/resources/map_data.rs`
 
+### ✅ Completed: Turn-Based Engine (v1.0)
+**Architecture:**
+- Two-phase turn system: `PlayerTurn` (awaiting input) and `WorldUpdate` (processing effects)
+- State-based scheduling using Bevy's state system
+- Chained world update systems ensure deterministic execution order
+- Player spawns/despawns automatically on F2 mode toggle
+
+**Controls:**
+- `WASD` - Move player in 4 directions (only during Running mode, PlayerTurn phase)
+- `F2` - Toggle between Editing and Running modes
+- Movement blocked by walls (no turn consumed if invalid)
+
+**Turn Processing Order:**
+1. Player inputs movement (WASD) → validates → updates position → advances to WorldUpdate
+2. WorldUpdate phase (chained systems):
+   - Gravitational anomaly pull (adjacent tiles)
+   - Anomaly effects (placeholder for Philosopher's Stone, Rust)
+   - Timer updates (gravitational anomaly countdown)
+   - Death check (timer reaches 0)
+   - Turn counter increment
+   - Transition back to PlayerTurn
+
+**Player Mechanics:**
+- Spawns at `PlayerStart` marker when entering Running mode
+- Visual representation: Red.png sprite (80% tile size)
+- Camera auto-follows player position
+- Logical position (Position component) separate from visual (Transform)
+- Camera panning disabled during Running mode
+
+**Gravitational Anomaly (Basic Implementation):**
+- Pulls player when adjacent (1 tile away, 4-directional) AND player doesn't have a timer
+- Player pulled 1 tile toward anomaly during WorldUpdate
+- Timer starts at 5 turns when player enters anomaly
+- Timer decrements each turn player remains **within range** (on anomaly OR adjacent)
+- Timer only removed when player escapes to **safe distance** (>1 tile away)
+- Player dies (returns to Editing) when timer reaches 0
+- Escape requires minimum 2 turns: off the anomaly tile → out of pull range
+
+**Technical Implementation:**
+- Resources: `TurnPhase` state, `TurnCounter` resource
+- Components: `Player` marker, `GravitationalAnomalyTimer(u32)`
+- Game states reduced to: `Running` and `Editing` (Paused removed)
+- Files: `src/systems/player.rs`, `src/systems/turn_based_input.rs`, `src/systems/turn_processor.rs`, `src/resources/turn_state.rs`
+
+**What's NOT Yet Implemented:**
+- Inventory system
+- Item pickup/drop
+- Bolt throwing
+- Other anomaly types (Philosopher's Stone, Rust)
+- Win condition (extraction)
+- Full game reset on death
+
+### ✅ Completed: HUD Display (v1.0)
+**Architecture:**
+- Message log resource stores last 5 messages
+- UI components spawned/despawned with Running mode
+- Change detection for efficient updates
+
+**Display Elements:**
+- Turn counter (updates each turn)
+- Weight display (placeholder: 0/250 until inventory implemented)
+- Message log (last 5 messages, oldest to newest from top to bottom)
+- Positioned at bottom of screen with semi-transparent background
+
+**Messages:**
+- "You enter the Zone..." (on spawn)
+- "Gravitational anomaly pulls you in!" (when pulled)
+- "Immense pressure... 5 turns to escape!" (timer starts)
+- "Crushing pressure! X turns left!" (each turn in range)
+- "You break free from the anomaly!" (escaped)
+- "You are crushed to death!" (death)
+
+**Visual Styling:**
+- Semi-transparent black background (rgba 0,0,0,0.8)
+- White text, monospace font
+- Messages fade slightly with age (newest brightest)
+- Stats bar at top, message log below
+
+**Technical Implementation:**
+- Resource: `MessageLog` (VecDeque with max 5 messages)
+- Components: `GameHudRoot`, `TurnCounterText`, `WeightText`, `MessageLogText`
+- Files: `src/resources/message_log.rs`, `src/systems/hud.rs`
+- Only visible during Running mode
+
 ## Core Systems
 
 ### 1. Tilemap Editor ✅ COMPLETE
@@ -57,16 +142,18 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 - **Format**: JSON files (serde serialization)
 - **Implementation**: See "Implementation Status" section above for full details
 
-### 2. Turn-Based Engine
+### 2. Turn-Based Engine ✅ COMPLETE
 - **Input**: 4-directional movement (WASD keyboard)
 - **Turn Structure**: Player action → World update → Player action
 - **Processing Order**:
-  1. Player performs action
+  1. Player performs action (validates wall collision)
   2. Check Gravitational anomaly pull (adjacent tiles)
-  3. Process anomaly end-of-turn effects
+  3. Process anomaly end-of-turn effects (stub)
   4. Update Gravitational anomaly countdown
   5. Check death condition
-  6. Return to player input
+  6. Increment turn counter
+  7. Return to player input
+- **Implementation**: See "Implementation Status" section above for full details
 
 ### 3. Item & Inventory System
 
@@ -135,11 +222,12 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 - **Feedback**: UI icon pulses when items detected
 - **No audio** (POC)
 
-### 8. HUD Display
-- Current weight / Max weight
+### 8. HUD Display ✅ COMPLETE
+- Current weight / Max weight (placeholder: 0/250)
 - Turn counter
-- Message log (anomaly effects, actions)
-- Metal detector status icon (pulses when active)
+- Message log (last 5 messages: anomaly effects, death, escape)
+- Metal detector status icon (NOT YET IMPLEMENTED)
+- **Implementation**: See "Implementation Status" section above for full details
 
 ### 9. Win/Loss Conditions
 
