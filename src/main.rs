@@ -12,6 +12,7 @@ use resources::{
     turn_state::{TurnPhase, TurnCounter},
     message_log::MessageLog,
 };
+use components::inventory::{CarryCapacity, LastMoveDirection};
 use systems::{
     setup::*,
     input::*,
@@ -23,6 +24,8 @@ use systems::{
     hud::*,
     ground_items::*,
     inspect_ui::*,
+    inventory_ui::*,
+    metal_detector::*,
 };
 use constants::*;
 
@@ -47,6 +50,8 @@ fn main() {
         .init_resource::<EditorCursor>()
         .init_resource::<TurnCounter>()
         .init_resource::<MessageLog>()
+        .init_resource::<CarryCapacity>()
+        .init_resource::<LastMoveDirection>()
         .add_systems(
             Startup,
             (
@@ -60,11 +65,13 @@ fn main() {
             spawn_player_system,
             spawn_game_hud_system,
             spawn_ground_item_sprites_system,
+            spawn_metal_detector_indicator_system,
         ))
         .add_systems(OnExit(GameState::Running), (
             despawn_player_system,
             despawn_game_hud_system,
             despawn_ground_item_sprites_system,
+            despawn_metal_detector_indicator_system,
         ))
         .add_systems(
             Update,
@@ -88,21 +95,23 @@ fn main() {
         .add_systems(
             Update,
             (
-                // Running mode - camera follows player, player transform syncs, HUD updates, ground items
+                // Running mode - camera follows player, player transform syncs, HUD updates, ground items, metal detector
                 camera_follow_player_system,
                 sync_player_transform_system,
                 update_turn_counter_system,
                 update_weight_display_system,
                 update_message_log_system,
                 update_ground_item_sprites_system,
+                update_metal_detector_system,
             ).run_if(in_state(GameState::Running)),
         )
         .add_systems(
             Update,
             (
-                // PlayerTurn phase - handle movement input and item inspection
+                // PlayerTurn phase - handle movement input, item inspection, and inventory
                 player_movement_system,
                 detect_inspect_input_system,
+                detect_inventory_input_system,
             ).run_if(in_state(GameState::Running))
              .run_if(in_state(TurnPhase::PlayerTurn)),
         )
@@ -129,10 +138,33 @@ fn main() {
         .add_systems(
             Update,
             (
-                // InspectingItems phase - handle ESC to close
+                // InspectingItems phase - handle navigation, pickup, and ESC to close
                 close_inspect_ui_system,
+                inspect_navigation_system,
+                pickup_item_system,
+                update_inspect_ui_selection_system,
+                rebuild_inspect_ui_system,
             ).run_if(in_state(GameState::Running))
              .run_if(in_state(TurnPhase::InspectingItems)),
+        )
+        .add_systems(OnEnter(TurnPhase::ViewingInventory), (
+            spawn_inventory_ui_system,
+        ))
+        .add_systems(OnExit(TurnPhase::ViewingInventory), (
+            despawn_inventory_ui_system,
+        ))
+        .add_systems(
+            Update,
+            (
+                // ViewingInventory phase - handle inventory interactions
+                close_inventory_ui_system,
+                inventory_navigation_system,
+                drop_item_system,
+                update_inventory_ui_selection_system,
+                rebuild_inventory_ui_system,
+                auto_scroll_inventory_system,
+            ).run_if(in_state(GameState::Running))
+             .run_if(in_state(TurnPhase::ViewingInventory)),
         )
         .add_systems(
             Update,

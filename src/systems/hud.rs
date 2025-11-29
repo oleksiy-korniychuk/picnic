@@ -107,13 +107,30 @@ pub fn update_turn_counter_system(
     }
 }
 
-/// Updates the weight display (placeholder until inventory exists)
+/// Updates the weight display based on player's inventory
 pub fn update_weight_display_system(
     mut query: Query<&mut Text, With<WeightText>>,
+    player_query: Query<(&crate::components::inventory::Inventory, Option<&crate::components::components::GravitationalAnomalyTimer>), With<crate::components::components::Player>>,
+    capacity: Res<crate::components::inventory::CarryCapacity>,
 ) {
-    // Placeholder: always shows 0/250 until inventory is implemented
+    let Ok((inventory, gravity_timer)) = player_query.single() else {
+        return;
+    };
+
+    let current_weight = inventory.total_weight();
+    let max_capacity = if gravity_timer.is_some() {
+        capacity.in_gravity
+    } else {
+        capacity.normal
+    };
+
     for mut text in query.iter_mut() {
-        **text = "Weight: 0/250".to_string();
+        // Show red text if over capacity
+        if current_weight > max_capacity {
+            **text = format!("Weight: {}/{} (OVERWEIGHT!)", current_weight, max_capacity);
+        } else {
+            **text = format!("Weight: {}/{}", current_weight, max_capacity);
+        }
     }
 }
 

@@ -97,6 +97,12 @@ pub fn editor_selection_system(
                 editor_state.selected_item = ItemType::GlassJar;
             } else if keyboard.just_pressed(KeyCode::Digit4) {
                 editor_state.selected_item = ItemType::Battery;
+            } else if keyboard.just_pressed(KeyCode::Digit5) {
+                editor_state.selected_item = ItemType::Bolt;
+            } else if keyboard.just_pressed(KeyCode::Digit6) {
+                editor_state.selected_item = ItemType::MetalDetector;
+            } else if keyboard.just_pressed(KeyCode::Digit7) {
+                editor_state.selected_item = ItemType::RustSlag;
             }
         }
     }
@@ -458,8 +464,11 @@ pub fn update_editor_hud_system(
                     ItemType::Scrap => "Scrap (2)",
                     ItemType::GlassJar => "Glass Jar (3)",
                     ItemType::Battery => "Battery (4)",
+                    ItemType::Bolt => "Bolt (5)",
+                    ItemType::MetalDetector => "Metal Detector (6)",
+                    ItemType::RustSlag => "Rust Slag (7)",
                 };
-                format!("ITEM: 1=FullyEmpty, 2=Scrap, 3=Glass, 4=Battery | Selected: {}", selected)
+                format!("ITEM: 1-7 available | Selected: {}", selected)
             }
         };
         **text = selection_str;

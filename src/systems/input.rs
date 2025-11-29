@@ -19,10 +19,13 @@ pub fn exit_on_escape_system(
     mut exit: EventWriter<AppExit>,
     turn_phase: Res<State<TurnPhase>>,
 ) {
-    // Only exit the game if we're NOT in InspectingItems phase
-    // (InspectingItems phase has its own ESC handler to close the modal)
-    if keyboard.just_pressed(KeyCode::Escape) && *turn_phase.get() != TurnPhase::InspectingItems {
-        exit.write(AppExit::Success);
+    // Only exit the game if we're NOT in a modal UI phase
+    // (Modal phases have their own ESC handlers to close the UI)
+    if keyboard.just_pressed(KeyCode::Escape) {
+        let phase = turn_phase.get();
+        if *phase != TurnPhase::InspectingItems && *phase != TurnPhase::ViewingInventory {
+            exit.write(AppExit::Success);
+        }
     }
 }
 

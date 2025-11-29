@@ -1,7 +1,8 @@
 use bevy::prelude::*;
 use crate::components::components::{Player, Position};
+use crate::components::inventory::Inventory;
 use crate::resources::{
-    game_grid::{EntityType, GameGrid},
+    game_grid::{EntityType, GameGrid, ItemType},
     camera::CameraPosition,
     turn_state::{TurnPhase, TurnCounter},
     message_log::MessageLog,
@@ -44,7 +45,18 @@ pub fn spawn_player_system(
             grid.height,
         );
 
-        // Spawn player entity
+        // Create starting inventory (10 Bolts + Metal Detector)
+        let mut starting_inventory = Inventory::new();
+
+        // Add 10 Bolts
+        for _ in 0..10 {
+            starting_inventory.add_item(ItemType::Bolt.into());
+        }
+
+        // Add Metal Detector
+        starting_inventory.add_item(ItemType::MetalDetector.into());
+
+        // Spawn player entity with inventory
         commands.spawn((
             Sprite {
                 image: texture,
@@ -54,6 +66,7 @@ pub fn spawn_player_system(
             Transform::from_xyz(world_pos.x, world_pos.y, 10.0),
             Player,
             start_pos,
+            starting_inventory,
         ));
 
         // Center camera on player

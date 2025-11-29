@@ -8,14 +8,16 @@ pub struct Item {
     pub name: String,
     pub weight: u32,
     pub value: Option<u32>, // Some items have no value (tools, bolts, etc.)
+    pub is_metal: bool,      // Whether the item is metal (for detector and Rust anomaly)
 }
 
 impl Item {
-    pub fn new(name: impl Into<String>, weight: u32, value: Option<u32>) -> Self {
+    pub fn new(name: impl Into<String>, weight: u32, value: Option<u32>, is_metal: bool) -> Self {
         Self {
             name: name.into(),
             weight,
             value,
+            is_metal,
         }
     }
 }
@@ -23,10 +25,13 @@ impl Item {
 impl From<ItemType> for Item {
     fn from(item_type: ItemType) -> Self {
         match item_type {
-            ItemType::FullyEmpty => Item::new("Fully Empty", 100, Some(200)),
-            ItemType::Scrap => Item::new("Scrap", 10, Some(5)),
-            ItemType::GlassJar => Item::new("Glass Jar", 5, Some(2)),
-            ItemType::Battery => Item::new("Battery", 3, Some(3)),
+            ItemType::FullyEmpty => Item::new("Fully Empty", 100, Some(200), false),
+            ItemType::Scrap => Item::new("Scrap", 10, Some(5), true),
+            ItemType::GlassJar => Item::new("Glass Jar", 5, Some(2), false),
+            ItemType::Battery => Item::new("Battery", 3, Some(3), false),
+            ItemType::Bolt => Item::new("Bolt", 1, None, false),
+            ItemType::MetalDetector => Item::new("Metal Detector", 50, None, true),
+            ItemType::RustSlag => Item::new("Rust Slag", 5, Some(0), true),
         }
     }
 }

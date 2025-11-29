@@ -8,7 +8,7 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 2. ✅ **Core turn-based engine** (COMPLETE)
 3. ✅ **HUD Display** (COMPLETE)
 4. ✅ **Ground Items & Inspection UI** (COMPLETE)
-5. ⏳ Inventory system (IN PROGRESS)
+5. ✅ **Inventory system** (COMPLETE)
 6. Anomaly mechanics (Philosopher's Stone, Rust)
 7. Win/loss conditions
 
@@ -38,6 +38,9 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
   - 2: Scrap
   - 3: Glass Jar
   - 4: Battery
+  - 5: Bolt
+  - 6: Metal Detector
+  - 7: Rust Slag
 - `Left Click` - Place selected terrain/entity/item
 - `Right Click` - Delete entity, reset tile to Floor, or remove all items from tile
 - `F3` - Quick save to `assets/maps/current.json`
@@ -67,19 +70,27 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 
 **Controls:**
 - `WASD` - Move player in 4 directions (only during Running mode, PlayerTurn phase)
-- `E` - Inspect items on current tile (transitions to InspectingItems phase)
-- `ESC` - Close inspect UI (if open) or exit game
+- `E` - Inspect items on current tile (transitions to InspectingItems phase), pickup selected item from inspect UI
+- `Tab` - Open inventory UI (transitions to ViewingInventory phase)
+- `D` - Drop selected item from inventory (places in front of player)
+- `ESC` - Close inspect/inventory UI (if open) or exit game
 - `F2` - Toggle between Editing and Running modes
-- Movement blocked by walls (no turn consumed if invalid)
+- Movement blocked by walls or being overweight (no turn consumed if invalid)
 
 **Turn Processing Order:**
-1. Player inputs movement (WASD) or inspection (E) during PlayerTurn
-   - Movement: validates → updates position → advances to WorldUpdate
+1. Player inputs movement (WASD), inspection (E), or inventory (Tab) during PlayerTurn
+   - Movement: validates weight → updates position → advances to WorldUpdate
    - Inspection: opens modal UI → transitions to InspectingItems (pauses game)
+   - Inventory: opens modal UI → transitions to ViewingInventory (pauses game)
 2. InspectingItems phase (optional):
    - Game paused, turn does not advance
+   - Arrow keys navigate item list, E picks up selected item
    - ESC closes UI → returns to PlayerTurn
-3. WorldUpdate phase (chained systems):
+3. ViewingInventory phase (optional):
+   - Game paused, turn does not advance
+   - Arrow keys navigate inventory, D drops selected item
+   - ESC closes UI → returns to PlayerTurn
+4. WorldUpdate phase (chained systems):
    - Gravitational anomaly pull (adjacent tiles)
    - Anomaly effects (placeholder for Philosopher's Stone, Rust)
    - Timer updates (gravitational anomaly countdown)
@@ -104,14 +115,13 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 - Escape requires minimum 2 turns: off the anomaly tile → out of pull range
 
 **Technical Implementation:**
-- Resources: `TurnPhase` state (PlayerTurn, WorldUpdate, InspectingItems), `TurnCounter` resource
-- Components: `Player` marker, `GravitationalAnomalyTimer(u32)`, `GroundItems`
+- Resources: `TurnPhase` state (PlayerTurn, WorldUpdate, InspectingItems, ViewingInventory), `TurnCounter`, `CarryCapacity`, `LastMoveDirection`
+- Components: `Player` marker, `GravitationalAnomalyTimer(u32)`, `GroundItems`, `Inventory`
 - Game states: `Running` and `Editing` (Paused removed)
-- Contextual ESC handling (closes inspect UI when open, otherwise exits game)
-- Files: `src/systems/player.rs`, `src/systems/turn_based_input.rs`, `src/systems/turn_processor.rs`, `src/resources/turn_state.rs`, `src/systems/inspect_ui.rs`, `src/systems/ground_items.rs`
+- Contextual ESC/Tab handling (closes inspect/inventory UI when open, otherwise exits game)
+- Files: `src/systems/player.rs`, `src/systems/turn_based_input.rs`, `src/systems/turn_processor.rs`, `src/resources/turn_state.rs`, `src/systems/inspect_ui.rs`, `src/systems/ground_items.rs`, `src/systems/inventory_ui.rs`, `src/components/inventory.rs`, `src/systems/metal_detector.rs`
 
 **What's NOT Yet Implemented:**
-- Inventory system (pickup/drop from ground)
 - Bolt throwing
 - Other anomaly types (Philosopher's Stone, Rust)
 - Win condition (extraction)
@@ -140,8 +150,10 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 **Player Interaction:**
 - `E` key to inspect items when standing on tile with items
 - Modal UI displays scrollable list of items with name/weight/value
+- Arrow keys navigate item list, `E` picks up selected item
 - `ESC` closes inspect UI (contextually aware - doesn't exit game)
-- No pickup yet (awaits full inventory system)
+- Pickup adds item to inventory and removes from ground
+- Ground entity despawns when last item picked up
 
 **Visual Feedback:**
 - Items.png sprite appears on tiles with items (only in Running mode)
@@ -164,7 +176,7 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 
 **Display Elements:**
 - Turn counter (updates each turn)
-- Weight display (placeholder: 0/250 until inventory implemented)
+- Weight display (actual inventory weight / capacity, red text if overweight)
 - Message log (last 5 messages, oldest to newest from top to bottom)
 - Positioned at bottom of screen with semi-transparent background
 
@@ -187,6 +199,56 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 - Components: `GameHudRoot`, `TurnCounterText`, `WeightText`, `MessageLogText`
 - Files: `src/resources/message_log.rs`, `src/systems/hud.rs`
 - Only visible during Running mode
+
+### ✅ Completed: Inventory System (v1.0)
+**Architecture:**
+- Unlimited inventory capacity (items always picked up)
+- Weight-based movement restriction (blocked if over capacity)
+- Capacity varies by context: 250 normal, 125 in gravity
+- Starting loadout: 10 Bolts (10 weight) + Metal Detector (50 weight) = 60 total
+
+**Inventory UI:**
+- `Tab` key opens modal inventory UI (ViewingInventory phase)
+- Scrollable list showing all carried items
+- Arrow keys navigate selection
+- `D` key drops selected item
+- `ESC` closes UI and returns to PlayerTurn
+- Weight display: "Current/Max" in red if overweight
+
+**Pickup System:**
+- Integrated into inspect UI (arrow keys + E on selected item)
+- Items added to inventory component
+- Removed from GroundItems component
+- Ground entity despawned when empty
+- Message log confirms pickup
+
+**Drop System:**
+- `D` key drops selected item from inventory
+- Item placed on tile in front of player (based on last WASD direction)
+- Falls back to current tile if front tile blocked/invalid
+- Creates new GroundItems entity or adds to existing
+- Message log confirms drop
+
+**Metal Detector:**
+- Visual indicator in top-right corner: "⚠ METAL DETECTED"
+- Only active if Metal Detector in inventory
+- Scans 2-tile radius (Manhattan distance: dx + dy <= 2)
+- Detects metal items on ground (is_metal field)
+- Indicator shows/hides based on detection
+
+**Movement Restriction:**
+- Weight checked before each WASD movement
+- Blocked if inventory weight > capacity
+- Message: "You're carrying too much weight to move!"
+- No turn consumed when blocked
+- Capacity halved (125) when in gravitational anomaly
+
+**Technical Implementation:**
+- Resources: `CarryCapacity` (normal: 250, in_gravity: 125), `LastMoveDirection` (tracks WASD for drop placement)
+- Components: `Inventory` (Vec<Item>), `InventorySelection`, `MetalDetectorIndicator`
+- Turn phases: `ViewingInventory` (pauses game, allows inventory management)
+- Files: `src/components/inventory.rs`, `src/systems/inventory_ui.rs`, `src/systems/metal_detector.rs`
+- All items have `is_metal` field for metal detector and Rust anomaly
 
 ## Core Systems
 
@@ -221,31 +283,34 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 - Modal UI shows item details (name, weight, value)
 - Items persist in map JSON (backwards-compatible serialization)
 
-**Items** (Implemented in editor, not yet in inventory):
+**Items** ✅ ALL IMPLEMENTED:
 | Item | Weight | Value | Properties |
 |------|--------|-------|------------|
-| Bolt | 1 | - | Throwable, starting: 10 (NOT YET IMPLEMENTED) |
+| Bolt | 1 | - | Throwable (not yet), starting: 10 ✅ |
 | Fully Empty | 100 | 200 | Artifact ✅ |
-| Metal Detector | 50 | - | Tool, beeps within 2 tiles, metal (NOT YET IMPLEMENTED) |
+| Metal Detector | 50 | - | Tool, beeps within 2 tiles, metal ✅ |
 | Scrap | 10 | 5 | Metal ✅ |
 | Glass Jar | 5 | 2 | Non-metal ✅ |
 | Battery | 3 | 3 | Non-metal ✅ |
-| Rust Slag | 5 | 0 | Byproduct, metal (NOT YET IMPLEMENTED) |
-| Backpack | - | - | Tool, can be dropped entirely (NOT YET IMPLEMENTED) |
+| Rust Slag | 5 | 0 | Byproduct, metal ✅ |
 
-**Carry System** (NOT YET IMPLEMENTED):
+**Carry System** ✅ COMPLETE:
 - Normal capacity: 250
 - Gravitational anomaly: 125 (halved)
-- Starting loadout: 10 bolts, metal detector, backpack
+- Starting loadout: 10 bolts (10 weight), metal detector (50 weight)
+- Movement blocked when over capacity
+- Inventory is "unlimited" but player cannot move when overweight
 
-**Inventory UI** (NOT YET IMPLEMENTED):
-- Roguelike list (arrow keys to select, list should be scrollable, space to drop)
+**Inventory UI** ✅ COMPLETE:
+- `Tab` key opens modal inventory
+- Arrow keys to navigate, scrollable list
+- `D` to drop selected item
 - Display: item name, weight, value (where applicable)
-- Actions: Pick up item, Drop individual item, drop full backpack
+- Metal detector indicator when equipped
 
-**Pickup/Drop Mechanics** (NOT YET IMPLEMENTED):
-- Pickup items from current tile
-- Items drop on tile in front of player
+**Pickup/Drop Mechanics** ✅ COMPLETE:
+- Pickup via inspect UI (E key on selected item)
+- Items drop on tile in front of player (based on last WASD direction)
 - If blocked, drop on current tile
 
 ### 4. Anomaly System
@@ -282,18 +347,21 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 - **Visual**: Items.png sprite on tile (60% tile size, z=1)
 - **Interaction**: Player stands on tile → press `E` → modal UI shows item list
 - **Inspection**: Scrollable list with item name, weight, and value
-- **Note**: Pickup/inventory integration not yet implemented
+- **Pickup**: Arrow keys to select, E to pickup selected item
+- **Integration**: Full inventory system implemented
 
-### 7. Metal Detector
-- **Range**: 2 tiles in any direction
-- **Feedback**: UI icon pulses when items detected
+### 7. Metal Detector ✅ COMPLETE
+- **Range**: 2 tiles Manhattan distance (dx + dy <= 2)
+- **Feedback**: "⚠ METAL DETECTED" indicator in top-right corner
+- **Activation**: Only active when Metal Detector in inventory
+- **Detection**: Scans ground items for is_metal flag
 - **No audio** (POC)
 
 ### 8. HUD Display ✅ COMPLETE
-- Current weight / Max weight (placeholder: 0/250)
+- Current weight / Max weight (actual inventory weight, red if overweight)
 - Turn counter
-- Message log (last 5 messages: anomaly effects, death, escape)
-- Metal detector status icon (NOT YET IMPLEMENTED)
+- Message log (last 5 messages: anomaly effects, death, escape, pickup)
+- Metal detector indicator (when equipped and metal detected)
 - **Implementation**: See "Implementation Status" section above for full details
 
 ### 9. Win/Loss Conditions

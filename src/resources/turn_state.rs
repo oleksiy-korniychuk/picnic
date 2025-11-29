@@ -7,6 +7,7 @@ pub enum TurnPhase {
     PlayerTurn,      // Waiting for player WASD input
     WorldUpdate,     // Processing world effects in sequence
     InspectingItems, // Player is inspecting items on current tile (paused)
+    ViewingInventory, // Player is viewing/managing their inventory (paused)
 }
 
 /// Tracks the current turn number for display in HUD

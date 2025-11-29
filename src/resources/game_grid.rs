@@ -85,6 +85,9 @@ pub enum ItemType {
     Scrap,
     GlassJar,
     Battery,
+    Bolt,
+    MetalDetector,
+    RustSlag,
 }
 
 #[derive(Resource, Default)]

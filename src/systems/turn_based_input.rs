@@ -1,40 +1,69 @@
 use bevy::prelude::*;
-use crate::components::components::{Player, Position};
+use crate::components::components::{Player, Position, GravitationalAnomalyTimer};
+use crate::components::inventory::{Inventory, CarryCapacity, LastMoveDirection};
 use crate::resources::{
     game_grid::{GameGrid, TileKind},
     turn_state::TurnPhase,
+    message_log::MessageLog,
 };
 
 /// Handles player movement input during PlayerTurn phase
 /// WASD moves the player in 4 directions if the destination is valid
 pub fn player_movement_system(
     keyboard: Res<ButtonInput<KeyCode>>,
-    mut player_query: Query<&mut Position, With<Player>>,
+    mut player_query: Query<(&mut Position, &Inventory, Option<&GravitationalAnomalyTimer>), With<Player>>,
     grid: Res<GameGrid>,
     mut next_phase: ResMut<NextState<TurnPhase>>,
+    capacity: Res<CarryCapacity>,
+    mut last_direction: ResMut<LastMoveDirection>,
+    mut message_log: ResMut<MessageLog>,
 ) {
-    // Get the player's current position
-    let Ok(mut player_pos) = player_query.single_mut() else {
+    // Get the player's current position and inventory
+    let Ok((mut player_pos, inventory, gravity_timer)) = player_query.single_mut() else {
         return;
     };
 
     // Determine movement direction from WASD input
     let mut delta_x = 0;
     let mut delta_y = 0;
+    let mut direction = None;
 
     if keyboard.just_pressed(KeyCode::KeyW) {
         delta_y = -1; // Up (negative Y in grid coordinates)
+        direction = Some(LastMoveDirection::North);
     } else if keyboard.just_pressed(KeyCode::KeyS) {
         delta_y = 1; // Down (positive Y in grid coordinates)
+        direction = Some(LastMoveDirection::South);
     } else if keyboard.just_pressed(KeyCode::KeyA) {
         delta_x = -1; // Left
+        direction = Some(LastMoveDirection::West);
     } else if keyboard.just_pressed(KeyCode::KeyD) {
         delta_x = 1; // Right
+        direction = Some(LastMoveDirection::East);
     }
 
     // If no movement input, do nothing
     if delta_x == 0 && delta_y == 0 {
         return;
+    }
+
+    // Check if player is over carry capacity
+    let current_weight = inventory.total_weight();
+    let max_capacity = if gravity_timer.is_some() {
+        capacity.in_gravity
+    } else {
+        capacity.normal
+    };
+
+    if current_weight > max_capacity {
+        message_log.add_message("You're carrying too much weight to move!");
+        info!("Movement blocked: over carry capacity ({}/{})", current_weight, max_capacity);
+        return;
+    }
+
+    // Update last move direction for drop mechanics
+    if let Some(dir) = direction {
+        *last_direction = dir;
     }
 
     // Calculate intended destination
