@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use crate::resources::{
     game_state::GameState,
     editor_state::{EditorState, EditorMode, EditorCursor},
-    game_grid::{GameGrid, TileKind, EntityType, Tile},
+    game_grid::{GameGrid, TileKind, EntityType, ItemType, Tile},
     map_data::MapData,
 };
 use crate::components::components::Position;
@@ -46,7 +46,7 @@ pub fn editor_toggle_system(
     }
 }
 
-// Switch between Terrain and Entity placement modes with Tab
+// Switch between Terrain, Entity, and Item placement modes with Tab
 pub fn editor_mode_toggle_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut editor_state: ResMut<EditorState>,
@@ -54,12 +54,13 @@ pub fn editor_mode_toggle_system(
     if keyboard.just_pressed(KeyCode::Tab) {
         editor_state.mode = match editor_state.mode {
             EditorMode::Terrain => EditorMode::Entity,
-            EditorMode::Entity => EditorMode::Terrain,
+            EditorMode::Entity => EditorMode::Item,
+            EditorMode::Item => EditorMode::Terrain,
         };
     }
 }
 
-// Select terrain or entity type with number keys 1-9
+// Select terrain, entity, or item type with number keys (mode-dependent)
 pub fn editor_selection_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut editor_state: ResMut<EditorState>,
@@ -73,20 +74,29 @@ pub fn editor_selection_system(
             }
         }
         EditorMode::Entity => {
-            if keyboard.just_pressed(KeyCode::Digit3) {
+            if keyboard.just_pressed(KeyCode::Digit1) {
                 editor_state.selected_entity = EntityType::GravitationalAnomaly;
-            } else if keyboard.just_pressed(KeyCode::Digit4) {
+            } else if keyboard.just_pressed(KeyCode::Digit2) {
                 editor_state.selected_entity = EntityType::PhilosopherStone;
-            } else if keyboard.just_pressed(KeyCode::Digit5) {
+            } else if keyboard.just_pressed(KeyCode::Digit3) {
                 editor_state.selected_entity = EntityType::RustAnomaly;
-            } else if keyboard.just_pressed(KeyCode::Digit6) {
+            } else if keyboard.just_pressed(KeyCode::Digit4) {
                 editor_state.selected_entity = EntityType::PlayerStart;
-            } else if keyboard.just_pressed(KeyCode::Digit7) {
+            } else if keyboard.just_pressed(KeyCode::Digit5) {
                 editor_state.selected_entity = EntityType::Exit;
-            } else if keyboard.just_pressed(KeyCode::Digit8) {
+            } else if keyboard.just_pressed(KeyCode::Digit6) {
                 editor_state.selected_entity = EntityType::LampPost;
-            } else if keyboard.just_pressed(KeyCode::Digit9) {
-                editor_state.selected_entity = EntityType::FullyEmpty;
+            }
+        }
+        EditorMode::Item => {
+            if keyboard.just_pressed(KeyCode::Digit1) {
+                editor_state.selected_item = ItemType::FullyEmpty;
+            } else if keyboard.just_pressed(KeyCode::Digit2) {
+                editor_state.selected_item = ItemType::Scrap;
+            } else if keyboard.just_pressed(KeyCode::Digit3) {
+                editor_state.selected_item = ItemType::GlassJar;
+            } else if keyboard.just_pressed(KeyCode::Digit4) {
+                editor_state.selected_item = ItemType::Battery;
             }
         }
     }
@@ -170,8 +180,11 @@ pub fn editor_save_load_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     grid: Res<GameGrid>,
     entity_query: Query<(Entity, &EntityType, &Position)>,
+    ground_items_query: Query<(Entity, &crate::components::item::GroundItems, &Position), Without<EntityType>>,
     mut commands: Commands,
 ) {
+    use crate::components::item::GroundItems;
+
     // F3: Save current map
     if keyboard.just_pressed(KeyCode::F3) {
         // Collect all placed entities
@@ -180,7 +193,13 @@ pub fn editor_save_load_system(
             .map(|(_, entity_type, pos)| (*entity_type, pos.x as usize, pos.y as usize))
             .collect();
 
-        let map_data = MapData::from_game_state(&grid, &entities);
+        // Collect all ground items
+        let ground_items: Vec<(GroundItems, usize, usize)> = ground_items_query
+            .iter()
+            .map(|(_, items, pos)| (items.clone(), pos.x as usize, pos.y as usize))
+            .collect();
+
+        let map_data = MapData::from_game_state(&grid, &entities, &ground_items);
 
         match map_data.save_to_file(MAP_FILE_PATH) {
             Ok(_) => info!("Map saved to {}", MAP_FILE_PATH),
@@ -196,6 +215,11 @@ pub fn editor_save_load_system(
 
                 // Despawn all existing entities
                 for (entity, _, _) in entity_query.iter() {
+                    commands.entity(entity).despawn();
+                }
+
+                // Despawn all existing ground items
+                for (entity, _, _) in ground_items_query.iter() {
                     commands.entity(entity).despawn();
                 }
 
@@ -217,15 +241,31 @@ pub fn editor_save_load_system(
                     );
                 }
 
-                info!("Loaded {}x{} map with {} entities",
-                    map_data.width, map_data.height, map_data.entities.len());
+                // Spawn ground items from loaded map
+                for placed_items in &map_data.items {
+                    let mut ground_items = GroundItems::new();
+                    for item in &placed_items.items {
+                        ground_items.add_item(item.clone());
+                    }
+
+                    commands.spawn((
+                        Position {
+                            x: placed_items.x as i32,
+                            y: placed_items.y as i32,
+                        },
+                        ground_items,
+                    ));
+                }
+
+                info!("Loaded {}x{} map with {} entities and {} item locations",
+                    map_data.width, map_data.height, map_data.entities.len(), map_data.items.len());
             }
             Err(e) => error!("Failed to load map: {}", e),
         }
     }
 }
 
-// Place terrain or entities with mouse clicks
+// Place terrain, entities, or items with mouse clicks
 pub fn editor_placement_system(
     mut commands: Commands,
     mouse: Res<ButtonInput<MouseButton>>,
@@ -233,12 +273,15 @@ pub fn editor_placement_system(
     editor_state: Res<EditorState>,
     mut grid: ResMut<GameGrid>,
     entity_query: Query<(Entity, &Position, &EntityType)>,
+    mut ground_items_query: Query<(Entity, &Position, &mut crate::components::item::GroundItems), Without<EntityType>>,
 ) {
+    use crate::components::item::{Item, GroundItems};
+
     let Some((grid_x, grid_y)) = cursor.grid_position else {
         return;
     };
 
-    // Left-click: Place terrain or entity
+    // Left-click: Place terrain, entity, or item
     if mouse.just_pressed(MouseButton::Left) {
         match editor_state.mode {
             EditorMode::Terrain => {
@@ -264,10 +307,35 @@ pub fn editor_placement_system(
                     );
                 }
             }
+            EditorMode::Item => {
+                // Check if there's already a GroundItems entity at this position
+                let existing_ground_items = ground_items_query.iter_mut().find(|(_, pos, _)| {
+                    pos.x == grid_x as i32 && pos.y == grid_y as i32
+                });
+
+                if let Some((_, _, mut ground_items)) = existing_ground_items {
+                    // Add item to existing GroundItems
+                    let item: Item = editor_state.selected_item.into();
+                    ground_items.add_item(item);
+                } else {
+                    // Create new GroundItems entity
+                    let item: Item = editor_state.selected_item.into();
+                    let mut ground_items = GroundItems::new();
+                    ground_items.add_item(item);
+
+                    commands.spawn((
+                        Position {
+                            x: grid_x as i32,
+                            y: grid_y as i32,
+                        },
+                        ground_items,
+                    ));
+                }
+            }
         }
     }
 
-    // Right-click: Delete entity or reset tile to Floor
+    // Right-click: Delete entity, reset tile to Floor, or remove all items
     if mouse.just_pressed(MouseButton::Right) {
         match editor_state.mode {
             EditorMode::Terrain => {
@@ -281,6 +349,15 @@ pub fn editor_placement_system(
                     if pos.x == grid_x as i32 && pos.y == grid_y as i32 {
                         commands.entity(entity).despawn();
                         break; // Only delete one entity
+                    }
+                }
+            }
+            EditorMode::Item => {
+                // Find and delete GroundItems entity at cursor position
+                for (entity, pos, _) in ground_items_query.iter() {
+                    if pos.x == grid_x as i32 && pos.y == grid_y as i32 {
+                        commands.entity(entity).despawn();
+                        break;
                     }
                 }
             }
@@ -353,28 +430,39 @@ pub fn update_editor_hud_system(
     mut selection_text_query: Query<&mut Text, (With<EditorSelectionText>, Without<EditorCursorText>)>,
     mut cursor_text_query: Query<&mut Text, (With<EditorCursorText>, Without<EditorSelectionText>)>,
 ) {
+    use crate::resources::game_grid::ItemType;
+
     // Update selection text
     if let Ok(mut text) = selection_text_query.single_mut() {
         let selection_str = match editor_state.mode {
             EditorMode::Terrain => {
                 match editor_state.selected_terrain {
-                    TileKind::Floor => "TERRAIN: Floor (1)",
-                    TileKind::Wall => "TERRAIN: Wall (2)",
+                    TileKind::Floor => "TERRAIN: 1=Floor, 2=Wall | Selected: Floor (1)".to_string(),
+                    TileKind::Wall => "TERRAIN: 1=Floor, 2=Wall | Selected: Wall (2)".to_string(),
                 }
             }
             EditorMode::Entity => {
-                match editor_state.selected_entity {
-                    EntityType::GravitationalAnomaly => "ENTITY: Gravitational Anomaly (3)",
-                    EntityType::PhilosopherStone => "ENTITY: Philosopher's Stone (4)",
-                    EntityType::RustAnomaly => "ENTITY: Rust Anomaly (5)",
-                    EntityType::PlayerStart => "ENTITY: Player Start (6)",
-                    EntityType::Exit => "ENTITY: Exit (7)",
-                    EntityType::LampPost => "ENTITY: Lamp Post (8)",
-                    EntityType::FullyEmpty => "ENTITY: Fully Empty (9)",
-                }
+                let selected = match editor_state.selected_entity {
+                    EntityType::GravitationalAnomaly => "Gravitational Anomaly (1)",
+                    EntityType::PhilosopherStone => "Philosopher's Stone (2)",
+                    EntityType::RustAnomaly => "Rust Anomaly (3)",
+                    EntityType::PlayerStart => "Player Start (4)",
+                    EntityType::Exit => "Exit (5)",
+                    EntityType::LampPost => "Lamp Post (6)",
+                };
+                format!("ENTITY: 1=Grav, 2=Phil, 3=Rust, 4=Start, 5=Exit, 6=Lamp | Selected: {}", selected)
+            }
+            EditorMode::Item => {
+                let selected = match editor_state.selected_item {
+                    ItemType::FullyEmpty => "Fully Empty (1)",
+                    ItemType::Scrap => "Scrap (2)",
+                    ItemType::GlassJar => "Glass Jar (3)",
+                    ItemType::Battery => "Battery (4)",
+                };
+                format!("ITEM: 1=FullyEmpty, 2=Scrap, 3=Glass, 4=Battery | Selected: {}", selected)
             }
         };
-        **text = selection_str.to_string();
+        **text = selection_str;
     }
 
     // Update cursor position text

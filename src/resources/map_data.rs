@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 use crate::resources::game_grid::{GameGrid, TileKind, EntityType, Tile};
+use crate::components::item::{Item, GroundItems};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct MapData {
@@ -10,6 +11,15 @@ pub struct MapData {
     pub height: usize,
     pub terrain: Vec<Vec<SerializableTileKind>>,
     pub entities: Vec<PlacedEntity>,
+    #[serde(default)] // Backwards compatible - defaults to empty vec if missing
+    pub items: Vec<PlacedGroundItems>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PlacedGroundItems {
+    pub x: usize,
+    pub y: usize,
+    pub items: Vec<Item>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
@@ -44,7 +54,6 @@ pub enum SerializableEntityType {
     PlayerStart,
     Exit,
     LampPost,
-    FullyEmpty,
 }
 
 impl From<EntityType> for SerializableEntityType {
@@ -56,7 +65,6 @@ impl From<EntityType> for SerializableEntityType {
             EntityType::PlayerStart => SerializableEntityType::PlayerStart,
             EntityType::Exit => SerializableEntityType::Exit,
             EntityType::LampPost => SerializableEntityType::LampPost,
-            EntityType::FullyEmpty => SerializableEntityType::FullyEmpty,
         }
     }
 }
@@ -70,7 +78,6 @@ impl From<SerializableEntityType> for EntityType {
             SerializableEntityType::PlayerStart => EntityType::PlayerStart,
             SerializableEntityType::Exit => EntityType::Exit,
             SerializableEntityType::LampPost => EntityType::LampPost,
-            SerializableEntityType::FullyEmpty => EntityType::FullyEmpty,
         }
     }
 }
@@ -87,6 +94,7 @@ impl MapData {
     pub fn from_game_state(
         grid: &GameGrid,
         entities: &[(EntityType, usize, usize)],
+        ground_items: &[(GroundItems, usize, usize)],
     ) -> Self {
         let mut terrain = Vec::with_capacity(grid.height);
         for y in 0..grid.height {
@@ -110,11 +118,21 @@ impl MapData {
             })
             .collect();
 
+        let items = ground_items
+            .iter()
+            .map(|(ground_items, x, y)| PlacedGroundItems {
+                x: *x,
+                y: *y,
+                items: ground_items.items.clone(),
+            })
+            .collect();
+
         MapData {
             width: grid.width,
             height: grid.height,
             terrain,
             entities,
+            items,
         }
     }
 

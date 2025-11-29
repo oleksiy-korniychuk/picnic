@@ -4,8 +4,9 @@ use bevy::prelude::*;
 #[derive(States, Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TurnPhase {
     #[default]
-    PlayerTurn,   // Waiting for player WASD input
-    WorldUpdate,  // Processing world effects in sequence
+    PlayerTurn,      // Waiting for player WASD input
+    WorldUpdate,     // Processing world effects in sequence
+    InspectingItems, // Player is inspecting items on current tile (paused)
 }
 
 /// Tracks the current turn number for display in HUD

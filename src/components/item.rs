@@ -1,0 +1,65 @@
+use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
+use crate::resources::game_grid::ItemType;
+
+/// Represents a single item with its properties
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Item {
+    pub name: String,
+    pub weight: u32,
+    pub value: Option<u32>, // Some items have no value (tools, bolts, etc.)
+}
+
+impl Item {
+    pub fn new(name: impl Into<String>, weight: u32, value: Option<u32>) -> Self {
+        Self {
+            name: name.into(),
+            weight,
+            value,
+        }
+    }
+}
+
+impl From<ItemType> for Item {
+    fn from(item_type: ItemType) -> Self {
+        match item_type {
+            ItemType::FullyEmpty => Item::new("Fully Empty", 100, Some(200)),
+            ItemType::Scrap => Item::new("Scrap", 10, Some(5)),
+            ItemType::GlassJar => Item::new("Glass Jar", 5, Some(2)),
+            ItemType::Battery => Item::new("Battery", 3, Some(3)),
+        }
+    }
+}
+
+/// Component attached to tile entities that have items on the ground
+/// Multiple items can exist on the same tile
+#[derive(Component, Debug, Default, Clone, Serialize, Deserialize)]
+pub struct GroundItems {
+    pub items: Vec<Item>,
+}
+
+impl GroundItems {
+    pub fn new() -> Self {
+        Self { items: Vec::new() }
+    }
+
+    pub fn add_item(&mut self, item: Item) {
+        self.items.push(item);
+    }
+
+    pub fn remove_item(&mut self, index: usize) -> Option<Item> {
+        if index < self.items.len() {
+            Some(self.items.remove(index))
+        } else {
+            None
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.items.is_empty()
+    }
+
+    pub fn count(&self) -> usize {
+        self.items.len()
+    }
+}

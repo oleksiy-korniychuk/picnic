@@ -76,8 +76,15 @@ pub enum EntityType {
     Exit,
     // Structures
     LampPost,
-    // Items
+}
+
+// Item layer - items that can be placed on ground tiles
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum ItemType {
     FullyEmpty,
+    Scrap,
+    GlassJar,
+    Battery,
 }
 
 #[derive(Resource, Default)]

@@ -7,9 +7,10 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 1. ✅ **Tilemap editor** (COMPLETE)
 2. ✅ **Core turn-based engine** (COMPLETE)
 3. ✅ **HUD Display** (COMPLETE)
-4. ⏳ Item & inventory systems (IN PROGRESS)
-5. Anomaly mechanics (Philosopher's Stone, Rust)
-6. Win/loss conditions
+4. ✅ **Ground Items & Inspection UI** (COMPLETE)
+5. ⏳ Inventory system (IN PROGRESS)
+6. Anomaly mechanics (Philosopher's Stone, Rust)
+7. Win/loss conditions
 
 ## Implementation Status
 
@@ -21,49 +22,64 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 
 **Controls:**
 - `F2` - Toggle between Running and Editing modes
-- `Tab` - Switch between Terrain and Entity placement modes
-- `1-2` - Select terrain (1=Floor, 2=Wall)
-- `3-9` - Select entities:
-  - 3: Gravitational Anomaly
-  - 4: Philosopher's Stone
-  - 5: Rust Anomaly
-  - 6: Player Start
-  - 7: Exit
-  - 8: Lamp Post
-  - 9: Fully Empty (artifact)
-- `Left Click` - Place selected terrain/entity
-- `Right Click` - Delete entity or reset tile to Floor
+- `Tab` - Cycle between Terrain, Entity, and Item placement modes
+- **Terrain Mode:**
+  - 1: Floor
+  - 2: Wall
+- **Entity Mode:**
+  - 1: Gravitational Anomaly
+  - 2: Philosopher's Stone
+  - 3: Rust Anomaly
+  - 4: Player Start
+  - 5: Exit
+  - 6: Lamp Post
+- **Item Mode:**
+  - 1: Fully Empty (artifact)
+  - 2: Scrap
+  - 3: Glass Jar
+  - 4: Battery
+- `Left Click` - Place selected terrain/entity/item
+- `Right Click` - Delete entity, reset tile to Floor, or remove all items from tile
 - `F3` - Quick save to `assets/maps/current.json`
 - `F4` - Quick load from `assets/maps/current.json`
 
 **Visual Feedback:**
 - Gray tiles for Floor, dark gray for Walls
 - Color-coded entities (purple/gold/orange for anomalies, green for start, blue for exit)
+- Items.png sprite on tiles with items (only visible in Item mode in editor)
 - White semi-transparent cursor highlight showing current grid position
-- Minimal HUD displaying: mode, current selection, cursor coordinates
+- Minimal HUD displaying: mode, current selection (mode-specific), cursor coordinates
 
 **Technical Implementation:**
-- JSON serialization via serde for map save/load
-- Automatic tile/entity sprite reload on map load
+- JSON serialization via serde for map save/load (backwards-compatible items field)
+- Automatic tile/entity/item sprite reload on map load
 - Keyboard-only interface (no complex UI forms)
 - Grid coordinates properly convert to/from world space
-- Files: `src/systems/editor.rs`, `src/systems/rendering.rs`, `src/resources/map_data.rs`
+- Mode-dependent key bindings (each mode starts at key 1)
+- Files: `src/systems/editor.rs`, `src/systems/rendering.rs`, `src/resources/map_data.rs`, `src/components/item.rs`
 
 ### ✅ Completed: Turn-Based Engine (v1.0)
 **Architecture:**
-- Two-phase turn system: `PlayerTurn` (awaiting input) and `WorldUpdate` (processing effects)
+- Three-phase turn system: `PlayerTurn` (awaiting input), `WorldUpdate` (processing effects), and `InspectingItems` (paused)
 - State-based scheduling using Bevy's state system
 - Chained world update systems ensure deterministic execution order
 - Player spawns/despawns automatically on F2 mode toggle
 
 **Controls:**
 - `WASD` - Move player in 4 directions (only during Running mode, PlayerTurn phase)
+- `E` - Inspect items on current tile (transitions to InspectingItems phase)
+- `ESC` - Close inspect UI (if open) or exit game
 - `F2` - Toggle between Editing and Running modes
 - Movement blocked by walls (no turn consumed if invalid)
 
 **Turn Processing Order:**
-1. Player inputs movement (WASD) → validates → updates position → advances to WorldUpdate
-2. WorldUpdate phase (chained systems):
+1. Player inputs movement (WASD) or inspection (E) during PlayerTurn
+   - Movement: validates → updates position → advances to WorldUpdate
+   - Inspection: opens modal UI → transitions to InspectingItems (pauses game)
+2. InspectingItems phase (optional):
+   - Game paused, turn does not advance
+   - ESC closes UI → returns to PlayerTurn
+3. WorldUpdate phase (chained systems):
    - Gravitational anomaly pull (adjacent tiles)
    - Anomaly effects (placeholder for Philosopher's Stone, Rust)
    - Timer updates (gravitational anomaly countdown)
@@ -88,18 +104,57 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 - Escape requires minimum 2 turns: off the anomaly tile → out of pull range
 
 **Technical Implementation:**
-- Resources: `TurnPhase` state, `TurnCounter` resource
-- Components: `Player` marker, `GravitationalAnomalyTimer(u32)`
-- Game states reduced to: `Running` and `Editing` (Paused removed)
-- Files: `src/systems/player.rs`, `src/systems/turn_based_input.rs`, `src/systems/turn_processor.rs`, `src/resources/turn_state.rs`
+- Resources: `TurnPhase` state (PlayerTurn, WorldUpdate, InspectingItems), `TurnCounter` resource
+- Components: `Player` marker, `GravitationalAnomalyTimer(u32)`, `GroundItems`
+- Game states: `Running` and `Editing` (Paused removed)
+- Contextual ESC handling (closes inspect UI when open, otherwise exits game)
+- Files: `src/systems/player.rs`, `src/systems/turn_based_input.rs`, `src/systems/turn_processor.rs`, `src/resources/turn_state.rs`, `src/systems/inspect_ui.rs`, `src/systems/ground_items.rs`
 
 **What's NOT Yet Implemented:**
-- Inventory system
-- Item pickup/drop
+- Inventory system (pickup/drop from ground)
 - Bolt throwing
 - Other anomaly types (Philosopher's Stone, Rust)
 - Win condition (extraction)
 - Full game reset on death
+
+### ✅ Completed: Ground Items & Inspection UI (v1.0)
+**Architecture:**
+- Item data structure with name, weight, and optional value
+- `GroundItems` component attached to tile positions
+- Items rendered using `Items.png` sprite (60% tile size)
+- Inspection UI is modal and pauses gameplay
+- Three-mode editor: Terrain, Entity, and Item placement
+
+**Editor Integration:**
+- New "Item" mode in editor (Tab to cycle: Terrain → Entity → Item)
+- Mode-dependent key bindings (each mode starts at key 1)
+- **Item Mode Keys:**
+  - 1: Fully Empty (artifact, 100 weight, 200 value)
+  - 2: Scrap (10 weight, 5 value)
+  - 3: Glass Jar (5 weight, 2 value)
+  - 4: Battery (3 weight, 3 value)
+- Left-click to place items (multiple items can stack on same tile)
+- Right-click to remove all items from tile
+- Items saved/loaded with map (F3/F4)
+
+**Player Interaction:**
+- `E` key to inspect items when standing on tile with items
+- Modal UI displays scrollable list of items with name/weight/value
+- `ESC` closes inspect UI (contextually aware - doesn't exit game)
+- No pickup yet (awaits full inventory system)
+
+**Visual Feedback:**
+- Items.png sprite appears on tiles with items (only in Running mode)
+- Sprite renders above entities but below player (z=1)
+- Inspector modal: semi-transparent overlay with bordered panel
+- Item list shows formatted text: "1. ItemName (Weight: X, Value: Y)"
+
+**Technical Implementation:**
+- Components: `Item`, `GroundItems`, `GroundItemSprite`, `InspectUiRoot`
+- Turn phase: `TurnPhase::InspectingItems` (pauses turn flow)
+- Files: `src/components/item.rs`, `src/systems/ground_items.rs`, `src/systems/inspect_ui.rs`
+- Map serialization: Backwards-compatible with `#[serde(default)]`
+- Items persisted in JSON as `items: Vec<PlacedGroundItems>`
 
 ### ✅ Completed: HUD Display (v1.0)
 **Architecture:**
@@ -140,6 +195,8 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 - **Functionality**: Load, edit, save dynamic-sized tile maps (default 25x25)
 - **Placeable Elements**: Walls, floors, anomalies, items, player start/exit, structures (lamp posts)
 - **Format**: JSON files (serde serialization)
+- **Three Modes**: Terrain, Entity, Item (Tab to cycle)
+- **Mode-Dependent Keys**: Each mode starts at key 1 (no shared number row)
 - **Implementation**: See "Implementation Status" section above for full details
 
 ### 2. Turn-Based Engine ✅ COMPLETE
@@ -157,29 +214,37 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 
 ### 3. Item & Inventory System
 
-**Items**:
+**Ground Items** ✅ COMPLETE:
+- Items can be placed on ground tiles via editor (Item mode)
+- Items.png sprite renders on tiles with items (Running mode only)
+- `E` key to inspect items on current tile
+- Modal UI shows item details (name, weight, value)
+- Items persist in map JSON (backwards-compatible serialization)
+
+**Items** (Implemented in editor, not yet in inventory):
 | Item | Weight | Value | Properties |
 |------|--------|-------|------------|
-| Bolt | 1 | - | Throwable, starting: 10 |
-| Fully Empty | 100 | 200 | Artifact |
-| Metal Detector | 50 | - | Tool, beeps within 2 tiles, metal |
-| Scrap | 10 | 5 | Metal |
-| Glass Jar | 5 | 2 | Non-metal |
-| Battery | 3 | 3 | Non-metal |
-| Rust Slag | 5 | 0 | Byproduct, metal |
-| Backpack | - | - | Tool, can be dropped entirely |
+| Bolt | 1 | - | Throwable, starting: 10 (NOT YET IMPLEMENTED) |
+| Fully Empty | 100 | 200 | Artifact ✅ |
+| Metal Detector | 50 | - | Tool, beeps within 2 tiles, metal (NOT YET IMPLEMENTED) |
+| Scrap | 10 | 5 | Metal ✅ |
+| Glass Jar | 5 | 2 | Non-metal ✅ |
+| Battery | 3 | 3 | Non-metal ✅ |
+| Rust Slag | 5 | 0 | Byproduct, metal (NOT YET IMPLEMENTED) |
+| Backpack | - | - | Tool, can be dropped entirely (NOT YET IMPLEMENTED) |
 
-**Carry System**:
+**Carry System** (NOT YET IMPLEMENTED):
 - Normal capacity: 250
 - Gravitational anomaly: 125 (halved)
 - Starting loadout: 10 bolts, metal detector, backpack
 
-**UI**:
-- Roguelike list (1-9 hotkeys, mouse click, arrow keys + space)
+**Inventory UI** (NOT YET IMPLEMENTED):
+- Roguelike list (arrow keys to select, list should be scrollable, space to drop)
 - Display: item name, weight, value (where applicable)
-- Actions: Drop individual item, drop full backpack
+- Actions: Pick up item, Drop individual item, drop full backpack
 
-**Drop Mechanics**:
+**Pickup/Drop Mechanics** (NOT YET IMPLEMENTED):
+- Pickup items from current tile
 - Items drop on tile in front of player
 - If blocked, drop on current tile
 
@@ -213,9 +278,11 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 - **Collision**: Stops at solid objects or anomalies
 - **Feedback**: Text description of anomaly interaction
 
-### 6. Ground Items
-- **Visual**: Generic "items" icon on tile
-- **Interaction**: Player stands on tile → "inspect" action reveals item list → pick up individual items
+### 6. Ground Items ✅ COMPLETE
+- **Visual**: Items.png sprite on tile (60% tile size, z=1)
+- **Interaction**: Player stands on tile → press `E` → modal UI shows item list
+- **Inspection**: Scrollable list with item name, weight, and value
+- **Note**: Pickup/inventory integration not yet implemented
 
 ### 7. Metal Detector
 - **Range**: 2 tiles in any direction

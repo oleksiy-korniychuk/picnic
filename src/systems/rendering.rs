@@ -61,7 +61,6 @@ pub fn get_entity_color(entity_type: EntityType) -> Color {
         EntityType::PlayerStart => Color::srgb(0.0, 1.0, 0.0),           // Green
         EntityType::Exit => Color::srgb(0.0, 0.53, 1.0),                 // Blue
         EntityType::LampPost => Color::srgb(1.0, 1.0, 0.0),              // Yellow
-        EntityType::FullyEmpty => Color::srgb(0.8, 0.5, 0.9),            // Light purple
     }
 }
 

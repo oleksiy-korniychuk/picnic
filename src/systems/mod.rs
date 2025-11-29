@@ -7,3 +7,5 @@ pub mod player;
 pub mod turn_based_input;
 pub mod turn_processor;
 pub mod hud;
+pub mod ground_items;
+pub mod inspect_ui;

@@ -169,65 +169,11 @@
       "Floor",
       "Floor",
       "Floor",
-      "Floor",
-      "Floor",
-      "Floor",
-      "Floor",
       "Wall",
       "Wall",
       "Wall",
       "Floor",
       "Floor",
-      "Floor",
-      "Floor",
-      "Floor",
-      "Floor",
-      "Floor",
-      "Floor",
-      "Floor",
-      "Floor",
-      "Floor",
-      "Floor",
-      "Floor",
-      "Floor"
-    ],
-    [
-      "Floor",
-      "Floor",
-      "Floor",
-      "Floor",
-      "Floor",
-      "Wall",
-      "Wall",
-      "Floor",
-      "Wall",
-      "Floor",
-      "Wall",
-      "Floor",
-      "Floor",
-      "Floor",
-      "Floor",
-      "Floor",
-      "Floor",
-      "Floor",
-      "Floor",
-      "Floor",
-      "Floor",
-      "Floor",
-      "Floor",
-      "Floor",
-      "Floor"
-    ],
-    [
-      "Floor",
-      "Floor",
-      "Floor",
-      "Floor",
-      "Floor",
-      "Wall",
-      "Floor",
-      "Floor",
-      "Wall",
       "Floor",
       "Floor",
       "Floor",
@@ -251,12 +197,12 @@
       "Floor",
       "Floor",
       "Floor",
+      "Floor",
       "Wall",
       "Floor",
       "Floor",
-      "Wall",
-      "Wall",
-      "Wall",
+      "Floor",
+      "Floor",
       "Floor",
       "Floor",
       "Floor",
@@ -277,9 +223,63 @@
       "Floor",
       "Floor",
       "Floor",
+      "Wall",
+      "Floor",
+      "Wall",
+      "Wall",
+      "Wall",
+      "Floor",
+      "Floor",
+      "Floor",
+      "Floor",
+      "Floor",
+      "Floor",
+      "Floor",
+      "Floor",
+      "Floor",
+      "Floor",
+      "Floor",
+      "Floor",
+      "Floor",
+      "Floor",
+      "Floor",
+      "Floor"
+    ],
+    [
+      "Floor",
+      "Floor",
+      "Floor",
       "Floor",
       "Wall",
       "Floor",
+      "Floor",
+      "Floor",
+      "Wall",
+      "Floor",
+      "Floor",
+      "Floor",
+      "Floor",
+      "Floor",
+      "Floor",
+      "Floor",
+      "Floor",
+      "Floor",
+      "Floor",
+      "Floor",
+      "Floor",
+      "Floor",
+      "Floor",
+      "Floor",
+      "Floor"
+    ],
+    [
+      "Floor",
+      "Floor",
+      "Floor",
+      "Floor",
+      "Wall",
+      "Floor",
+      "Wall",
       "Wall",
       "Wall",
       "Floor",
@@ -681,43 +681,63 @@
   "entities": [
     {
       "entity_type": "GravitationalAnomaly",
-      "x": 11,
-      "y": 8
+      "x": 5,
+      "y": 11
     },
     {
-      "entity_type": "PhilosopherStone",
+      "entity_type": "LampPost",
       "x": 6,
-      "y": 8
-    },
-    {
-      "entity_type": "RustAnomaly",
-      "x": 17,
-      "y": 14
+      "y": 12
     },
     {
       "entity_type": "PlayerStart",
-      "x": 12,
-      "y": 24
+      "x": 0,
+      "y": 17
     },
     {
       "entity_type": "Exit",
       "x": 24,
-      "y": 12
-    },
+      "y": 17
+    }
+  ],
+  "items": [
     {
-      "entity_type": "LampPost",
       "x": 7,
-      "y": 12
+      "y": 9,
+      "items": [
+        {
+          "name": "Fully Empty",
+          "weight": 100,
+          "value": 200
+        }
+      ]
     },
     {
-      "entity_type": "LampPost",
-      "x": 13,
-      "y": 7
+      "x": 6,
+      "y": 9,
+      "items": [
+        {
+          "name": "Scrap",
+          "weight": 10,
+          "value": 5
+        }
+      ]
     },
     {
-      "entity_type": "FullyEmpty",
-      "x": 9,
-      "y": 7
+      "x": 5,
+      "y": 13,
+      "items": [
+        {
+          "name": "Battery",
+          "weight": 3,
+          "value": 3
+        },
+        {
+          "name": "Battery",
+          "weight": 3,
+          "value": 3
+        }
+      ]
     }
   ]
 }

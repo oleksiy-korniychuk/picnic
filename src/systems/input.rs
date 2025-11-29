@@ -10,14 +10,18 @@ use crate::components::components::{Player, Position};
 use crate::resources::{
     camera::{CameraZoom, CameraPosition},
     game_grid::GameGrid,
+    turn_state::TurnPhase,
 };
 use crate::systems::rendering::grid_to_world;
 
 pub fn exit_on_escape_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut exit: EventWriter<AppExit>,
+    turn_phase: Res<State<TurnPhase>>,
 ) {
-    if keyboard.just_pressed(KeyCode::Escape) {
+    // Only exit the game if we're NOT in InspectingItems phase
+    // (InspectingItems phase has its own ESC handler to close the modal)
+    if keyboard.just_pressed(KeyCode::Escape) && *turn_phase.get() != TurnPhase::InspectingItems {
         exit.write(AppExit::Success);
     }
 }

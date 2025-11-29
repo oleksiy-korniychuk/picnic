@@ -21,6 +21,8 @@ use systems::{
     turn_based_input::*,
     turn_processor::*,
     hud::*,
+    ground_items::*,
+    inspect_ui::*,
 };
 use constants::*;
 
@@ -57,10 +59,12 @@ fn main() {
         .add_systems(OnEnter(GameState::Running), (
             spawn_player_system,
             spawn_game_hud_system,
+            spawn_ground_item_sprites_system,
         ))
         .add_systems(OnExit(GameState::Running), (
             despawn_player_system,
             despawn_game_hud_system,
+            despawn_ground_item_sprites_system,
         ))
         .add_systems(
             Update,
@@ -84,19 +88,21 @@ fn main() {
         .add_systems(
             Update,
             (
-                // Running mode - camera follows player, player transform syncs, HUD updates
+                // Running mode - camera follows player, player transform syncs, HUD updates, ground items
                 camera_follow_player_system,
                 sync_player_transform_system,
                 update_turn_counter_system,
                 update_weight_display_system,
                 update_message_log_system,
+                update_ground_item_sprites_system,
             ).run_if(in_state(GameState::Running)),
         )
         .add_systems(
             Update,
             (
-                // PlayerTurn phase - handle movement input
+                // PlayerTurn phase - handle movement input and item inspection
                 player_movement_system,
+                detect_inspect_input_system,
             ).run_if(in_state(GameState::Running))
              .run_if(in_state(TurnPhase::PlayerTurn)),
         )
@@ -113,6 +119,20 @@ fn main() {
             ).chain()
              .run_if(in_state(GameState::Running))
              .run_if(in_state(TurnPhase::WorldUpdate)),
+        )
+        .add_systems(OnEnter(TurnPhase::InspectingItems), (
+            spawn_inspect_ui_system,
+        ))
+        .add_systems(OnExit(TurnPhase::InspectingItems), (
+            despawn_inspect_ui_system,
+        ))
+        .add_systems(
+            Update,
+            (
+                // InspectingItems phase - handle ESC to close
+                close_inspect_ui_system,
+            ).run_if(in_state(GameState::Running))
+             .run_if(in_state(TurnPhase::InspectingItems)),
         )
         .add_systems(
             Update,

@@ -88,7 +88,7 @@ pub fn despawn_game_hud_system(
     hud_query: Query<Entity, With<GameHudRoot>>,
 ) {
     for entity in hud_query.iter() {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
     info!("Game HUD despawned");
 }
