@@ -82,6 +82,7 @@ fn main() {
                 toggle_editor_hud_visibility_system,
                 update_tile_sprite_system,
                 reload_tile_sprites_system,
+                update_entity_colors_system,
             ),
         )
         .add_systems(
@@ -119,7 +120,8 @@ fn main() {
             (
                 // WorldUpdate phase - chained systems in exact order
                 gravitational_pull_system,
-                anomaly_effects_system,
+                philosopher_stone_system,
+                rust_anomaly_system,
                 gravitational_timer_system,
                 death_check_system,
                 increment_turn_counter_system,

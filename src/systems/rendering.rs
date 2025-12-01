@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::resources::game_grid::{GameGrid, TileKind, EntityType};
+use crate::resources::game_state::GameState;
 use crate::components::components::{Position, TileMarker};
 use crate::constants::TILE_SIZE;
 
@@ -53,14 +54,32 @@ fn get_tile_color(kind: TileKind) -> Color {
 }
 
 // Get color for entity types
-pub fn get_entity_color(entity_type: EntityType) -> Color {
-    match entity_type {
-        EntityType::GravitationalAnomaly => Color::srgb(0.53, 0.0, 1.0), // Purple
-        EntityType::PhilosopherStone => Color::srgb(1.0, 0.84, 0.0),     // Gold
-        EntityType::RustAnomaly => Color::srgb(1.0, 0.4, 0.0),           // Orange
-        EntityType::PlayerStart => Color::srgb(0.0, 1.0, 0.0),           // Green
-        EntityType::Exit => Color::srgb(0.0, 0.53, 1.0),                 // Blue
-        EntityType::LampPost => Color::srgb(1.0, 1.0, 0.0),              // Yellow
+// In Running mode, all anomalies appear as identical purple overlays (obscured)
+// In Editor mode, anomalies are color-coded for easy placement
+pub fn get_entity_color(entity_type: EntityType, game_state: &GameState) -> Color {
+    match game_state {
+        GameState::Running => {
+            // In Running mode: all anomalies appear as semi-transparent purple
+            match entity_type {
+                EntityType::GravitationalAnomaly | EntityType::PhilosopherStone | EntityType::RustAnomaly => {
+                    Color::srgba(0.53, 0.0, 1.0, 0.6) // Semi-transparent purple
+                }
+                EntityType::PlayerStart => Color::srgb(0.0, 1.0, 0.0),   // Green
+                EntityType::Exit => Color::srgb(0.0, 0.53, 1.0),         // Blue
+                EntityType::LampPost => Color::srgb(1.0, 1.0, 0.0),      // Yellow
+            }
+        }
+        GameState::Editing => {
+            // In Editor mode: color-coded anomalies for easy identification
+            match entity_type {
+                EntityType::GravitationalAnomaly => Color::srgb(0.53, 0.0, 1.0), // Purple
+                EntityType::PhilosopherStone => Color::srgb(1.0, 0.84, 0.0),     // Gold
+                EntityType::RustAnomaly => Color::srgb(1.0, 0.4, 0.0),           // Orange
+                EntityType::PlayerStart => Color::srgb(0.0, 1.0, 0.0),           // Green
+                EntityType::Exit => Color::srgb(0.0, 0.53, 1.0),                 // Blue
+                EntityType::LampPost => Color::srgb(1.0, 1.0, 0.0),              // Yellow
+            }
+        }
     }
 }
 
@@ -88,6 +107,7 @@ pub fn grid_to_world(grid_x: usize, grid_y: usize, grid_width: usize, grid_heigh
 }
 
 // Spawn an entity at a grid position
+// Note: Color is set initially but will be updated by update_entity_colors_system based on game state
 pub fn spawn_placed_entity(
     commands: &mut Commands,
     entity_type: EntityType,
@@ -97,7 +117,8 @@ pub fn spawn_placed_entity(
     grid_height: usize,
 ) {
     let world_pos = grid_to_world(grid_x, grid_y, grid_width, grid_height);
-    let color = get_entity_color(entity_type);
+    // Default to editing color, will be updated by system
+    let color = get_entity_color(entity_type, &GameState::Editing);
 
     commands.spawn((
         Sprite {
@@ -105,7 +126,7 @@ pub fn spawn_placed_entity(
             custom_size: Some(Vec2::new(TILE_SIZE * 0.8, TILE_SIZE * 0.8)), // Slightly smaller than tiles
             ..default()
         },
-        Transform::from_xyz(world_pos.x, world_pos.y, 0.0), // Z=0 for entities, above tiles
+        Transform::from_xyz(world_pos.x, world_pos.y, 2.0), // Z=2 for entities (anomalies render above player at z=1.5)
         entity_type,
         Position {
             x: grid_x as i32,
@@ -161,5 +182,24 @@ pub fn reload_tile_sprites_system(
                 ));
             }
         }
+    }
+}
+
+/// Updates entity sprite colors when game state changes (Running vs Editing)
+/// In Running mode: all anomalies appear as identical semi-transparent purple
+/// In Editing mode: anomalies are color-coded for easy placement
+pub fn update_entity_colors_system(
+    game_state: Res<State<GameState>>,
+    mut entity_query: Query<(&EntityType, &mut Sprite)>,
+) {
+    // Only update when game state changes
+    if !game_state.is_changed() {
+        return;
+    }
+
+    let current_state = game_state.get();
+
+    for (entity_type, mut sprite) in entity_query.iter_mut() {
+        sprite.color = get_entity_color(*entity_type, current_state);
     }
 }

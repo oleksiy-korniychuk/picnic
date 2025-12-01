@@ -216,12 +216,13 @@ pub fn despawn_inventory_ui_system(
 }
 
 /// Handles ESC key to close inventory UI
+/// Closing the inventory menu consumes 1 turn (transitions to WorldUpdate)
 pub fn close_inventory_ui_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut next_phase: ResMut<NextState<TurnPhase>>,
 ) {
     if keyboard.just_pressed(KeyCode::Escape) {
-        next_phase.set(TurnPhase::PlayerTurn);
+        next_phase.set(TurnPhase::WorldUpdate);
     }
 }
 

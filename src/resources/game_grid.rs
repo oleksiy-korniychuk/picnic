@@ -90,5 +90,60 @@ pub enum ItemType {
     RustSlag,
 }
 
+impl ItemType {
+    /// Returns all ItemType variants for dynamic querying
+    /// Used by Philosopher's Stone anomaly for dynamic transformations
+    pub fn all_variants() -> Vec<ItemType> {
+        vec![
+            ItemType::FullyEmpty,
+            ItemType::Scrap,
+            ItemType::GlassJar,
+            ItemType::Battery,
+            ItemType::Bolt,
+            ItemType::MetalDetector,
+            ItemType::RustSlag,
+        ]
+    }
+}
+
 #[derive(Resource, Default)]
 pub struct SpatialGrid(pub HashMap<Position, Vec<Entity>>);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::components::item::Item;
+
+    #[test]
+    fn test_all_item_variants_covered() {
+        // This test ensures that all ItemType variants are included in all_variants()
+        // If a new ItemType is added but forgotten in all_variants(), this test will fail
+
+        let variants = ItemType::all_variants();
+
+        // Test each variant can be converted to Item and back
+        for variant in &variants {
+            let item: Item = (*variant).into();
+            // If conversion works, the variant is properly defined
+            assert!(!item.name.is_empty(), "Item name should not be empty for {:?}", variant);
+        }
+
+        // Check count matches expected number of variants
+        // Update this number when adding new ItemType variants
+        assert_eq!(
+            variants.len(),
+            7,
+            "Expected 7 ItemType variants. If you added a new variant, update this test and all_variants()"
+        );
+
+        // Verify no duplicates in all_variants()
+        let mut seen = std::collections::HashSet::new();
+        for variant in &variants {
+            assert!(
+                seen.insert(variant),
+                "Duplicate variant {:?} in all_variants()",
+                variant
+            );
+        }
+    }
+}

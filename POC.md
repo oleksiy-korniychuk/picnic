@@ -9,7 +9,7 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 3. ✅ **HUD Display** (COMPLETE)
 4. ✅ **Ground Items & Inspection UI** (COMPLETE)
 5. ✅ **Inventory system** (COMPLETE)
-6. Anomaly mechanics (Philosopher's Stone, Rust)
+6. ✅ **Anomaly mechanics** (COMPLETE - Philosopher's Stone, Rust)
 7. Win/loss conditions
 
 ## Implementation Status
@@ -72,24 +72,24 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 - `WASD` - Move player in 4 directions (only during Running mode, PlayerTurn phase)
 - `E` - Inspect items on current tile (transitions to InspectingItems phase), pickup selected item from inspect UI
 - `Tab` - Open inventory UI (transitions to ViewingInventory phase)
-- `D` - Drop selected item from inventory (places in front of player)
-- `ESC` - Close inspect/inventory UI (if open) or exit game
+- `D` - Drop selected item from inventory (places on current tile)
+- `ESC` - Close inspect/inventory UI (consumes 1 turn) or exit game
 - `F2` - Toggle between Editing and Running modes
 - Movement blocked by walls or being overweight (no turn consumed if invalid)
 
 **Turn Processing Order:**
 1. Player inputs movement (WASD), inspection (E), or inventory (Tab) during PlayerTurn
-   - Movement: validates weight → updates position → advances to WorldUpdate
-   - Inspection: opens modal UI → transitions to InspectingItems (pauses game)
-   - Inventory: opens modal UI → transitions to ViewingInventory (pauses game)
+   - Movement: validates weight → updates position → advances to WorldUpdate (1 turn)
+   - Inspection: opens modal UI → transitions to InspectingItems (pauses game, no turn yet)
+   - Inventory: opens modal UI → transitions to ViewingInventory (pauses game, no turn yet)
 2. InspectingItems phase (optional):
-   - Game paused, turn does not advance
+   - Game paused, turn does not advance while menu open
    - Arrow keys navigate item list, E picks up selected item
-   - ESC closes UI → returns to PlayerTurn
+   - ESC closes UI → advances to WorldUpdate (1 turn consumed)
 3. ViewingInventory phase (optional):
-   - Game paused, turn does not advance
+   - Game paused, turn does not advance while menu open
    - Arrow keys navigate inventory, D drops selected item
-   - ESC closes UI → returns to PlayerTurn
+   - ESC closes UI → advances to WorldUpdate (1 turn consumed)
 4. WorldUpdate phase (chained systems):
    - Gravitational anomaly pull (adjacent tiles)
    - Anomaly effects (placeholder for Philosopher's Stone, Rust)
@@ -123,7 +123,6 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 
 **What's NOT Yet Implemented:**
 - Bolt throwing
-- Other anomaly types (Philosopher's Stone, Rust)
 - Win condition (extraction)
 - Full game reset on death
 
@@ -285,7 +284,7 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 **Items** ✅ ALL IMPLEMENTED:
 | Item | Weight | Value | Properties |
 |------|--------|-------|------------|
-| Bolt | 1 | - | Throwable (not yet), starting: 10 ✅ |
+| Bolt | 1 | 1 | Throwable (not yet), starting: 10 ✅ |
 | Fully Empty | 100 | 200 | Artifact ✅ |
 | Metal Detector | 50 | - | Tool, beeps within 2 tiles, metal ✅ |
 | Scrap | 10 | 5 | Metal ✅ |
@@ -312,29 +311,39 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 - Items drop on tile in front of player (based on last WASD direction)
 - If blocked, drop on current tile
 
-### 4. Anomaly System
+### 4. Anomaly System ✅ COMPLETE
 
-**Visual**: All anomalies appear as faint purple overlay (indistinguishable)
+**Visual Rendering:**
+- **Running Mode**: All anomalies appear as identical semi-transparent purple overlays (z-index 2, above player)
+- **Editor Mode**: Color-coded for easy placement (Purple=Gravitational, Gold=Philosopher's Stone, Orange=Rust)
+- Anomaly overlays render above player sprite when player is on same tile
 
-**Types**:
+**Types:**
 
-**Gravitational Anomaly**:
+**Gravitational Anomaly** ✅:
 - Pull: Player within 1 tile pulled in during world update
 - Effect: Carry capacity reduced to 125
 - Death: 5 turns inside anomaly = crushed
 - Text: "You feel as if you weigh a thousand pounds. Every fiber in your body strains and creaks under the weight."
 
-**Philosopher's Stone**:
-- Trigger: End of turn, if ground items present
-- Effect: Destroys 1 random ground item, replaces with equal/lesser value item, 5% chance → Fully Empty
-- Text: Descriptive transformation message
+**Philosopher's Stone** ✅:
+- Trigger: Player standing ON anomaly tile, ground items present
+- Effect (valued items): Destroys 1 random item, replaces with equal/lesser value item, 5% chance → Fully Empty
+- Effect (non-valued items): Shows mysterious flavor text, no transformation
+- Dynamic item transformation using `ItemType::all_variants()` for maintainability
+- Text: Atmospheric transformation messages ("The Scrap shimmers and becomes Glass Jar...")
 
-**The Rust**:
-- Trigger: End of turn, if metal items present (ground OR player inventory on tile)
+**The Rust** ✅:
+- Trigger: Player standing ON anomaly tile, metal items present (ground OR inventory)
 - Effect: Destroys 1 random metal item → Rust Slag
-- Text: "The [item] on the ground begins to rust rapidly before your very eyes. In an instant, it melts into a rusty glob."
+- Text (ground): Clear descriptive "The [item] on the ground begins to rust rapidly..."
+- Text (inventory): Vague sensory "The acrid smell of oxidation surrounds you..."
 
-**Text Logs**: All anomaly effects generate atmospheric text when player nearby
+**Implementation:**
+- Systems: `philosopher_stone_system`, `rust_anomaly_system` in `turn_processor.rs`
+- Visual: `update_entity_colors_system` in `rendering.rs` (game state-aware)
+- Dynamic item system with test coverage (`ItemType::all_variants()`)
+- All anomaly effects generate atmospheric text in message log
 
 ### 5. Bolt Detection System
 - **Range**: 5 tiles straight line (4 directions)

@@ -213,12 +213,13 @@ pub fn despawn_inspect_ui_system(
 }
 
 /// Handles ESC key to close inspect UI (when in InspectingItems phase)
+/// Closing the inspect menu consumes 1 turn (transitions to WorldUpdate)
 pub fn close_inspect_ui_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut next_phase: ResMut<NextState<TurnPhase>>,
 ) {
     if keyboard.just_pressed(KeyCode::Escape) {
-        next_phase.set(TurnPhase::PlayerTurn);
+        next_phase.set(TurnPhase::WorldUpdate);
     }
 }
 

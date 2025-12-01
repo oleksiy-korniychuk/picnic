@@ -29,7 +29,7 @@ impl From<ItemType> for Item {
             ItemType::Scrap => Item::new("Scrap", 10, Some(5), true),
             ItemType::GlassJar => Item::new("Glass Jar", 5, Some(2), false),
             ItemType::Battery => Item::new("Battery", 3, Some(3), false),
-            ItemType::Bolt => Item::new("Bolt", 1, None, false),
+            ItemType::Bolt => Item::new("Bolt", 1, Some(1), false),
             ItemType::MetalDetector => Item::new("Metal Detector", 50, None, true),
             ItemType::RustSlag => Item::new("Rust Slag", 5, Some(0), true),
         }

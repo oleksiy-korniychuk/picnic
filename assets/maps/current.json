@@ -698,6 +698,11 @@
       "entity_type": "Exit",
       "x": 0,
       "y": 19
+    },
+    {
+      "entity_type": "PhilosopherStone",
+      "x": 15,
+      "y": 16
     }
   ],
   "items": [
