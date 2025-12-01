@@ -11,3 +11,4 @@ pub mod ground_items;
 pub mod inspect_ui;
 pub mod inventory_ui;
 pub mod metal_detector;
+pub mod bolt_throwing;

@@ -26,6 +26,7 @@ use systems::{
     inspect_ui::*,
     inventory_ui::*,
     metal_detector::*,
+    bolt_throwing::*,
 };
 use constants::*;
 
@@ -108,10 +109,11 @@ fn main() {
         .add_systems(
             Update,
             (
-                // PlayerTurn phase - handle movement input, item inspection, and inventory
+                // PlayerTurn phase - handle movement input, item inspection, inventory, and bolt throwing
                 player_movement_system,
                 detect_inspect_input_system,
                 detect_inventory_input_system,
+                detect_bolt_throw_input_system,
             ).run_if(in_state(GameState::Running))
              .run_if(in_state(TurnPhase::PlayerTurn)),
         )
@@ -130,12 +132,28 @@ fn main() {
              .run_if(in_state(GameState::Running))
              .run_if(in_state(TurnPhase::WorldUpdate)),
         )
+        .add_systems(OnEnter(TurnPhase::ThrowingBolt), (
+            spawn_bolt_indicator_system,
+        ))
+        .add_systems(OnExit(TurnPhase::ThrowingBolt), (
+            despawn_bolt_indicator_system,
+        ))
         .add_systems(OnEnter(TurnPhase::InspectingItems), (
             spawn_inspect_ui_system,
         ))
         .add_systems(OnExit(TurnPhase::InspectingItems), (
             despawn_inspect_ui_system,
         ))
+        .add_systems(
+            Update,
+            (
+                // ThrowingBolt phase - handle direction selection, bolt animation, and trail updates
+                bolt_direction_input_system,
+                animate_bolt_flight_system,
+                update_bolt_trail_system,
+            ).run_if(in_state(GameState::Running))
+             .run_if(in_state(TurnPhase::ThrowingBolt)),
+        )
         .add_systems(
             Update,
             (
