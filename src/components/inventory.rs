@@ -56,25 +56,3 @@ impl Default for CarryCapacity {
         }
     }
 }
-
-/// Resource tracking the player's last movement direction for drop mechanics
-#[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub enum LastMoveDirection {
-    #[default]
-    North,
-    South,
-    East,
-    West,
-}
-
-impl LastMoveDirection {
-    /// Returns the offset (dx, dy) for this direction
-    pub fn offset(&self) -> (i32, i32) {
-        match self {
-            LastMoveDirection::North => (0, -1),
-            LastMoveDirection::South => (0, 1),
-            LastMoveDirection::East => (1, 0),
-            LastMoveDirection::West => (-1, 0),
-        }
-    }
-}

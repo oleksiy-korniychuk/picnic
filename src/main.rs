@@ -12,7 +12,7 @@ use resources::{
     turn_state::{TurnPhase, TurnCounter},
     message_log::MessageLog,
 };
-use components::inventory::{CarryCapacity, LastMoveDirection};
+use components::inventory::CarryCapacity;
 use systems::{
     setup::*,
     input::*,
@@ -51,7 +51,6 @@ fn main() {
         .init_resource::<TurnCounter>()
         .init_resource::<MessageLog>()
         .init_resource::<CarryCapacity>()
-        .init_resource::<LastMoveDirection>()
         .add_systems(
             Startup,
             (

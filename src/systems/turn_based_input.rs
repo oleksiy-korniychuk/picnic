@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use crate::components::components::{Player, Position, GravitationalAnomalyTimer};
-use crate::components::inventory::{Inventory, CarryCapacity, LastMoveDirection};
+use crate::components::inventory::{Inventory, CarryCapacity};
 use crate::resources::{
     game_grid::{GameGrid, TileKind},
     turn_state::TurnPhase,
@@ -15,7 +15,6 @@ pub fn player_movement_system(
     grid: Res<GameGrid>,
     mut next_phase: ResMut<NextState<TurnPhase>>,
     capacity: Res<CarryCapacity>,
-    mut last_direction: ResMut<LastMoveDirection>,
     mut message_log: ResMut<MessageLog>,
 ) {
     // Get the player's current position and inventory
@@ -26,20 +25,15 @@ pub fn player_movement_system(
     // Determine movement direction from WASD input
     let mut delta_x = 0;
     let mut delta_y = 0;
-    let mut direction = None;
 
     if keyboard.just_pressed(KeyCode::KeyW) {
         delta_y = -1; // Up (negative Y in grid coordinates)
-        direction = Some(LastMoveDirection::North);
     } else if keyboard.just_pressed(KeyCode::KeyS) {
         delta_y = 1; // Down (positive Y in grid coordinates)
-        direction = Some(LastMoveDirection::South);
     } else if keyboard.just_pressed(KeyCode::KeyA) {
         delta_x = -1; // Left
-        direction = Some(LastMoveDirection::West);
     } else if keyboard.just_pressed(KeyCode::KeyD) {
         delta_x = 1; // Right
-        direction = Some(LastMoveDirection::East);
     }
 
     // If no movement input, do nothing
@@ -59,11 +53,6 @@ pub fn player_movement_system(
         message_log.add_message("You're carrying too much weight to move!");
         info!("Movement blocked: over carry capacity ({}/{})", current_weight, max_capacity);
         return;
-    }
-
-    // Update last move direction for drop mechanics
-    if let Some(dir) = direction {
-        *last_direction = dir;
     }
 
     // Calculate intended destination

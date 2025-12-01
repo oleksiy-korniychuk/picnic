@@ -1,12 +1,11 @@
 use bevy::prelude::*;
 use crate::components::{
     components::{Player, Position},
-    inventory::{Inventory, CarryCapacity, LastMoveDirection},
+    inventory::{Inventory, CarryCapacity},
     item::GroundItems,
 };
 use crate::resources::{
     turn_state::TurnPhase,
-    game_grid::{GameGrid, TileKind},
 };
 
 /// Marker component for the inventory UI root
@@ -258,15 +257,13 @@ pub fn inventory_navigation_system(
     }
 }
 
-/// Handles D key to drop selected item
+/// Handles D key to drop selected item (always drops on player's current tile)
 pub fn drop_item_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut commands: Commands,
     mut player_query: Query<(&mut Inventory, &Position), With<Player>>,
     selection_query: Query<&InventorySelection>,
     mut ground_items_query: Query<(Entity, &Position, &mut GroundItems), Without<Player>>,
-    grid: Res<GameGrid>,
-    last_direction: Res<LastMoveDirection>,
 ) {
     if !keyboard.just_pressed(KeyCode::KeyD) {
         return;
@@ -289,23 +286,8 @@ pub fn drop_item_system(
         return;
     };
 
-    // Calculate drop position (tile in front of player based on last move direction)
-    let (dx, dy) = last_direction.offset();
-    let drop_x = player_pos.x + dx;
-    let drop_y = player_pos.y + dy;
-
-    // Check if drop position is valid (not a wall and in bounds)
-    let drop_pos = if drop_x >= 0
-        && drop_y >= 0
-        && drop_x < grid.width as i32
-        && drop_y < grid.height as i32
-        && grid.get_tile(drop_x as usize, drop_y as usize).map(|t| t.kind != TileKind::Wall).unwrap_or(false)
-    {
-        Position { x: drop_x, y: drop_y }
-    } else {
-        // Drop on current tile if front tile is blocked
-        *player_pos
-    };
+    // Drop on player's current tile
+    let drop_pos = *player_pos;
 
     // Find or create GroundItems entity at drop position
     let mut found = false;

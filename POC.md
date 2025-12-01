@@ -115,7 +115,7 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 - Escape requires minimum 2 turns: off the anomaly tile → out of pull range
 
 **Technical Implementation:**
-- Resources: `TurnPhase` state (PlayerTurn, WorldUpdate, InspectingItems, ViewingInventory), `TurnCounter`, `CarryCapacity`, `LastMoveDirection`
+- Resources: `TurnPhase` state (PlayerTurn, WorldUpdate, InspectingItems, ViewingInventory), `TurnCounter`, `CarryCapacity`
 - Components: `Player` marker, `GravitationalAnomalyTimer(u32)`, `GroundItems`, `Inventory`
 - Game states: `Running` and `Editing` (Paused removed)
 - Contextual ESC/Tab handling (closes inspect/inventory UI when open, otherwise exits game)
@@ -224,8 +224,7 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 
 **Drop System:**
 - `D` key drops selected item from inventory
-- Item placed on tile in front of player (based on last WASD direction)
-- Falls back to current tile if front tile blocked/invalid
+- Item always placed on player's current tile
 - Creates new GroundItems entity or adds to existing
 - Message log confirms drop
 
@@ -244,7 +243,7 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 - Capacity halved (125) when in gravitational anomaly
 
 **Technical Implementation:**
-- Resources: `CarryCapacity` (normal: 250, in_gravity: 125), `LastMoveDirection` (tracks WASD for drop placement)
+- Resources: `CarryCapacity` (normal: 250, in_gravity: 125)
 - Components: `Inventory` (Vec<Item>), `InventorySelection`, `MetalDetectorIndicator`
 - Turn phases: `ViewingInventory` (pauses game, allows inventory management)
 - Files: `src/components/inventory.rs`, `src/systems/inventory_ui.rs`, `src/systems/metal_detector.rs`
@@ -274,7 +273,7 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
   7. Return to player input
 - **Implementation**: See "Implementation Status" section above for full details
 
-### 3. Item & Inventory System
+### 3. Item & Inventory System ✅ COMPLETE
 
 **Ground Items** ✅ COMPLETE:
 - Items can be placed on ground tiles via editor (Item mode)
