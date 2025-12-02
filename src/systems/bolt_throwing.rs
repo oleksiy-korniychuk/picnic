@@ -183,10 +183,10 @@ pub fn bolt_direction_input_system(
 pub fn animate_bolt_flight_system(
     mut commands: Commands,
     time: Res<Time>,
-    mut projectile_query: Query<(Entity, &mut BoltProjectile, &mut Position, &mut Transform)>,
+    mut projectile_query: Query<(Entity, &mut BoltProjectile, &mut Position, &mut Transform), (With<BoltProjectile>, Without<EntityType>, Without<GroundItems>)>,
     grid: Res<GameGrid>,
-    entity_query: Query<(&Position, &EntityType)>,
-    mut ground_items_query: Query<(&Position, &mut GroundItems)>,
+    entity_query: Query<(&Position, &EntityType), (With<EntityType>, Without<BoltProjectile>, Without<GroundItems>)>,
+    mut ground_items_query: Query<(&Position, &mut GroundItems), (With<GroundItems>, Without<BoltProjectile>, Without<EntityType>)>,
     mut next_phase: ResMut<NextState<TurnPhase>>,
     mut message_log: ResMut<MessageLog>,
     asset_server: Res<AssetServer>,
@@ -292,7 +292,7 @@ pub fn animate_bolt_flight_system(
 
 /// Checks if there's an anomaly at the given position
 fn check_anomaly_collision(
-    entity_query: &Query<(&Position, &EntityType)>,
+    entity_query: &Query<(&Position, &EntityType), (With<EntityType>, Without<BoltProjectile>, Without<GroundItems>)>,
     pos: &Position,
 ) -> Option<EntityType> {
     for (entity_pos, entity_type) in entity_query.iter() {
@@ -315,7 +315,7 @@ fn finalize_bolt(
     commands: &mut Commands,
     projectile_entity: Entity,
     final_pos: Position,
-    ground_items_query: &mut Query<(&Position, &mut GroundItems)>,
+    ground_items_query: &mut Query<(&Position, &mut GroundItems), (With<GroundItems>, Without<BoltProjectile>, Without<EntityType>)>,
     next_phase: &mut ResMut<NextState<TurnPhase>>,
 ) {
     // Add bolt to ground at final position
@@ -334,7 +334,7 @@ fn finalize_bolt(
 fn add_bolt_to_ground(
     commands: &mut Commands,
     pos: Position,
-    ground_items_query: &mut Query<(&Position, &mut GroundItems)>,
+    ground_items_query: &mut Query<(&Position, &mut GroundItems), (With<GroundItems>, Without<BoltProjectile>, Without<EntityType>)>,
 ) {
     // Find existing GroundItems entity at this position
     let mut found = false;

@@ -96,7 +96,7 @@ fn main() {
         .add_systems(
             Update,
             (
-                // Running mode - camera follows player, player transform syncs, HUD updates, ground items, metal detector
+                // Running mode - camera follows player, player transform syncs, HUD updates, ground items, metal detector, bolt trails
                 camera_follow_player_system,
                 sync_player_transform_system,
                 update_turn_counter_system,
@@ -104,6 +104,7 @@ fn main() {
                 update_message_log_system,
                 update_ground_item_sprites_system,
                 update_metal_detector_system,
+                update_bolt_trail_system,
             ).run_if(in_state(GameState::Running)),
         )
         .add_systems(
@@ -147,10 +148,9 @@ fn main() {
         .add_systems(
             Update,
             (
-                // ThrowingBolt phase - handle direction selection, bolt animation, and trail updates
+                // ThrowingBolt phase - handle direction selection and bolt animation
                 bolt_direction_input_system,
                 animate_bolt_flight_system,
-                update_bolt_trail_system,
             ).run_if(in_state(GameState::Running))
              .run_if(in_state(TurnPhase::ThrowingBolt)),
         )
