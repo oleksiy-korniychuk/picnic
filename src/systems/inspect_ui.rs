@@ -208,7 +208,7 @@ pub fn despawn_inspect_ui_system(
     ui_query: Query<Entity, With<InspectUiRoot>>,
 ) {
     for entity in ui_query.iter() {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }
 
@@ -394,9 +394,9 @@ pub fn rebuild_inspect_ui_system(
     let current_selection = selection_query.single().map(|s| s.selected_index).unwrap_or(0);
     let adjusted_selection = current_selection.min(items.len().saturating_sub(1));
 
-    // Despawn old UI
+    // Despawn old UI (if it still exists - it might have been despawned by state transition)
     for entity in ui_query.iter() {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 
     let current_weight = inventory.total_weight();
