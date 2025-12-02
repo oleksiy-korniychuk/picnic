@@ -9,8 +9,9 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 3. ✅ **HUD Display** (COMPLETE)
 4. ✅ **Ground Items & Inspection UI** (COMPLETE)
 5. ✅ **Inventory system** (COMPLETE)
-6. ✅ **Anomaly mechanics** (COMPLETE - Philosopher's Stone, Rust)
-7. Win/loss conditions
+6. ✅ **Anomaly mechanics** (COMPLETE - Philosopher's Stone, Rust, Gravitational)
+7. ✅ **Bolt throwing system** (COMPLETE)
+8. ✅ **Win/loss conditions** (COMPLETE)
 
 ## Implementation Status
 
@@ -121,10 +122,7 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 - Contextual ESC/Tab handling (closes inspect/inventory UI when open, otherwise exits game)
 - Files: `src/systems/player.rs`, `src/systems/turn_based_input.rs`, `src/systems/turn_processor.rs`, `src/resources/turn_state.rs`, `src/systems/inspect_ui.rs`, `src/systems/ground_items.rs`, `src/systems/inventory_ui.rs`, `src/components/inventory.rs`, `src/systems/metal_detector.rs`
 
-**What's NOT Yet Implemented:**
-- Bolt throwing
-- Win condition (extraction)
-- Full game reset on death
+**All Features Complete** ✅
 
 ### ✅ Completed: Ground Items & Inspection UI (v1.0)
 **Architecture:**
@@ -345,11 +343,38 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 - Dynamic item system with test coverage (`ItemType::all_variants()`)
 - All anomaly effects generate atmospheric text in message log
 
-### 5. Bolt Detection System
-- **Range**: 5 tiles straight line (4 directions)
-- **Animation**: 0.5 second flight, tile-by-tile with fading trail
-- **Collision**: Stops at solid objects or anomalies
-- **Feedback**: Text description of anomaly interaction
+### 5. Bolt Throwing System ✅ COMPLETE
+
+**Controls:**
+- `Q` key to enter ThrowingBolt phase (requires bolt in inventory)
+- `WASD` to select direction
+- Bolt fires automatically after direction selected
+- `ESC` to cancel and return to PlayerTurn
+
+**Mechanics:**
+- Range: 5 tiles straight line (4 directions)
+- Consumes 1 bolt from inventory
+- Animation: 0.5 second flight, tile-by-tile with fading trail
+- Collision: Stops at walls, anomalies, or max range
+- Feedback: Message log describes what bolt hit
+
+**Visual:**
+- Red square indicator appears during direction selection
+- Bolt sprite animates along path
+- Trail sprites fade out after bolt passes
+- All sprites cleaned up automatically
+
+**Detection:**
+- Reports anomaly type when bolt collides
+- Reports wall/obstacle collisions
+- Reports empty tiles at max range
+
+**Technical Implementation:**
+- Components: `BoltThrowingIndicator`, `BoltProjectile`, `BoltTrail`
+- Turn phase: `TurnPhase::ThrowingBolt` (pauses game for direction input)
+- Systems: `detect_bolt_throw_input_system`, `spawn_bolt_indicator_system`, `bolt_direction_input_system`, `animate_bolt_flight_system`, `update_bolt_trail_system`, `despawn_bolt_indicator_system`
+- Files: `src/systems/bolt_throwing.rs`
+- Fully integrated with inventory system
 
 ### 6. Ground Items ✅ COMPLETE
 - **Visual**: Items.png sprite on tile (60% tile size, z=1)
