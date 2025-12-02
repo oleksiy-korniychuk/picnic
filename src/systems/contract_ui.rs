@@ -65,7 +65,7 @@ pub fn spawn_enter_zone_ui_system(
                     parent.spawn((
                         Text::new("Mission Briefing"),
                         TextFont {
-                            font_size: 32.0,
+                            font_size: 24.0,
                             ..default()
                         },
                         TextColor(Color::srgb(0.9, 0.9, 0.3)),
@@ -75,7 +75,7 @@ pub fn spawn_enter_zone_ui_system(
                     parent.spawn((
                         Text::new("Active Contracts:"),
                         TextFont {
-                            font_size: 20.0,
+                            font_size: 16.0,
                             ..default()
                         },
                         TextColor(Color::srgb(0.8, 0.8, 0.8)),
@@ -112,7 +112,7 @@ pub fn spawn_enter_zone_ui_system(
                     parent.spawn((
                         Text::new("E - Accept and Enter the Zone"),
                         TextFont {
-                            font_size: 18.0,
+                            font_size: 16.0,
                             ..default()
                         },
                         TextColor(Color::srgb(0.6, 0.9, 0.6)),
@@ -203,7 +203,7 @@ pub fn spawn_exit_zone_ui_system(
                     parent.spawn((
                         Text::new("Extraction Point"),
                         TextFont {
-                            font_size: 32.0,
+                            font_size: 24.0,
                             ..default()
                         },
                         TextColor(Color::srgb(0.9, 0.9, 0.3)),
@@ -213,7 +213,7 @@ pub fn spawn_exit_zone_ui_system(
                     parent.spawn((
                         Text::new("Contract Status:"),
                         TextFont {
-                            font_size: 20.0,
+                            font_size: 16.0,
                             ..default()
                         },
                         TextColor(Color::srgb(0.8, 0.8, 0.8)),
@@ -222,9 +222,9 @@ pub fn spawn_exit_zone_ui_system(
                     // Contract list with completion status
                     for status in contract_statuses.iter() {
                         let (marker, color) = if status.completed {
-                            ("✓", Color::srgb(0.3, 0.9, 0.3)) // Green checkmark
+                            ("[COMPLETE]", Color::srgb(0.3, 0.9, 0.3)) // Green
                         } else {
-                            ("✗", Color::srgb(0.9, 0.3, 0.3)) // Red X
+                            ("[FAILED]", Color::srgb(0.9, 0.3, 0.3)) // Red
                         };
 
                         parent
@@ -240,7 +240,7 @@ pub fn spawn_exit_zone_ui_system(
                                 parent.spawn((
                                     Text::new(marker),
                                     TextFont {
-                                        font_size: 22.0,
+                                        font_size: 16.0,
                                         ..default()
                                     },
                                     TextColor(color),
@@ -272,7 +272,7 @@ pub fn spawn_exit_zone_ui_system(
                     parent.spawn((
                         Text::new("E - Exit the Zone"),
                         TextFont {
-                            font_size: 18.0,
+                            font_size: 16.0,
                             ..default()
                         },
                         TextColor(Color::srgb(0.6, 0.9, 0.6)),
@@ -356,7 +356,7 @@ pub fn spawn_death_ui_system(
                     parent.spawn((
                         Text::new("DEATH"),
                         TextFont {
-                            font_size: 40.0,
+                            font_size: 24.0,
                             ..default()
                         },
                         TextColor(Color::srgb(0.9, 0.2, 0.2)),
@@ -366,7 +366,7 @@ pub fn spawn_death_ui_system(
                     parent.spawn((
                         Text::new("Red has met his end in the Zone"),
                         TextFont {
-                            font_size: 22.0,
+                            font_size: 16.0,
                             ..default()
                         },
                         TextColor(Color::srgb(0.9, 0.9, 0.9)),
@@ -391,7 +391,7 @@ pub fn spawn_death_ui_system(
                     parent.spawn((
                         Text::new("E - Restart with a new Stalker"),
                         TextFont {
-                            font_size: 18.0,
+                            font_size: 16.0,
                             ..default()
                         },
                         TextColor(Color::srgb(0.6, 0.9, 0.6)),
