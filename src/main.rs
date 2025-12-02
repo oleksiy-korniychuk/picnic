@@ -11,6 +11,7 @@ use resources::{
     editor_state::{EditorState, EditorCursor},
     turn_state::{TurnPhase, TurnCounter},
     message_log::MessageLog,
+    contract_system::ContractSystem,
 };
 use components::inventory::CarryCapacity;
 use systems::{
@@ -26,6 +27,7 @@ use systems::{
     inspect_ui::*,
     inventory_ui::*,
     metal_detector::*,
+    contract_ui::*,
 };
 use constants::*;
 
@@ -51,6 +53,8 @@ fn main() {
         .init_resource::<TurnCounter>()
         .init_resource::<MessageLog>()
         .init_resource::<CarryCapacity>()
+        .init_resource::<ContractSystem>()
+        .init_resource::<AutoRestartFlag>()
         .add_systems(
             Startup,
             (
@@ -62,15 +66,17 @@ fn main() {
         )
         .add_systems(OnEnter(GameState::Running), (
             spawn_player_system,
+            set_entering_zone_phase_system,
             spawn_game_hud_system,
             spawn_ground_item_sprites_system,
             spawn_metal_detector_indicator_system,
-        ))
+        ).chain())
         .add_systems(OnExit(GameState::Running), (
             despawn_player_system,
             despawn_game_hud_system,
             despawn_ground_item_sprites_system,
             despawn_metal_detector_indicator_system,
+            prepare_restart_system,
         ))
         .add_systems(
             Update,
@@ -108,10 +114,11 @@ fn main() {
         .add_systems(
             Update,
             (
-                // PlayerTurn phase - handle movement input, item inspection, and inventory
+                // PlayerTurn phase - handle movement input, item inspection, inventory, and exit detection
                 player_movement_system,
                 detect_inspect_input_system,
                 detect_inventory_input_system,
+                detect_exit_system,
             ).run_if(in_state(GameState::Running))
              .run_if(in_state(TurnPhase::PlayerTurn)),
         )
@@ -167,6 +174,48 @@ fn main() {
             ).run_if(in_state(GameState::Running))
              .run_if(in_state(TurnPhase::ViewingInventory)),
         )
+        .add_systems(OnEnter(TurnPhase::EnteringZone), (
+            spawn_enter_zone_ui_system,
+        ))
+        .add_systems(OnExit(TurnPhase::EnteringZone), (
+            despawn_enter_zone_ui_system,
+        ))
+        .add_systems(
+            Update,
+            (
+                // EnteringZone phase - show contract briefing
+                close_enter_zone_ui_system,
+            ).run_if(in_state(GameState::Running))
+             .run_if(in_state(TurnPhase::EnteringZone)),
+        )
+        .add_systems(OnEnter(TurnPhase::ExitingZone), (
+            spawn_exit_zone_ui_system,
+        ))
+        .add_systems(OnExit(TurnPhase::ExitingZone), (
+            despawn_exit_zone_ui_system,
+        ))
+        .add_systems(
+            Update,
+            (
+                // ExitingZone phase - show contract completion status
+                close_exit_zone_ui_system,
+            ).run_if(in_state(GameState::Running))
+             .run_if(in_state(TurnPhase::ExitingZone)),
+        )
+        .add_systems(OnEnter(TurnPhase::PlayerDead), (
+            spawn_death_ui_system,
+        ))
+        .add_systems(OnExit(TurnPhase::PlayerDead), (
+            despawn_death_ui_system,
+        ))
+        .add_systems(
+            Update,
+            (
+                // PlayerDead phase - show death screen
+                close_death_ui_system,
+            ).run_if(in_state(GameState::Running))
+             .run_if(in_state(TurnPhase::PlayerDead)),
+        )
         .add_systems(
             Update,
             (
@@ -178,6 +227,7 @@ fn main() {
                 editor_placement_system,
                 editor_save_load_system,
                 update_editor_hud_system,
+                auto_restart_system,
             ).run_if(in_state(GameState::Editing)),
         )
         .insert_resource(Time::<Fixed>::from_hz(TICK_RATE_HZ))

@@ -79,8 +79,7 @@ pub fn spawn_player_system(
         message_log.clear();
         message_log.add_message("You enter the Zone...");
 
-        // Start in PlayerTurn phase
-        next_phase.set(TurnPhase::PlayerTurn);
+        // Note: TurnPhase will be set by set_entering_zone_phase_system after spawn
 
         info!("Player spawned at position ({}, {})", start_pos.x, start_pos.y);
     } else {

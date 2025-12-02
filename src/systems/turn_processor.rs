@@ -331,22 +331,19 @@ pub fn gravitational_timer_system(
 /// Checks if player has died and handles death
 /// Currently only checks gravitational anomaly death (timer reaches 0)
 pub fn death_check_system(
-    mut commands: Commands,
-    player_query: Query<(Entity, &GravitationalAnomalyTimer), With<Player>>,
-    mut next_state: ResMut<NextState<GameState>>,
+    player_query: Query<&GravitationalAnomalyTimer, With<Player>>,
+    mut next_phase: ResMut<NextState<TurnPhase>>,
     mut message_log: ResMut<MessageLog>,
 ) {
-    let Ok((player_entity, timer)) = player_query.single() else {
+    let Ok(timer) = player_query.single() else {
         return;
     };
 
     if timer.0 == 0 {
-        // Player died - despawn and return to editing
+        // Player died - transition to death screen
         message_log.add_message("You are crushed to death!");
-        commands.entity(player_entity).despawn();
-        next_state.set(GameState::Editing);
+        next_phase.set(TurnPhase::PlayerDead);
         error!("DEATH: Player was crushed by gravitational anomaly!");
-        // TODO: Full reset in later POC phase
     }
 }
 
