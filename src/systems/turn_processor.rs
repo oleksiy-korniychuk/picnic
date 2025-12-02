@@ -357,8 +357,20 @@ pub fn increment_turn_counter_system(
 
 /// Transitions back to PlayerTurn phase
 /// This is the last system in the WorldUpdate chain
+/// Only transitions if the player is not dead
 pub fn transition_to_player_turn_system(
+    player_query: Query<Option<&GravitationalAnomalyTimer>, With<Player>>,
     mut next_phase: ResMut<NextState<TurnPhase>>,
 ) {
-    next_phase.set(TurnPhase::PlayerTurn);
+    // Check if player is dead (has timer at 0)
+    let is_dead = player_query
+        .single()
+        .ok()
+        .flatten()
+        .map_or(false, |timer| timer.0 == 0);
+
+    // Only transition to PlayerTurn if player is alive
+    if !is_dead {
+        next_phase.set(TurnPhase::PlayerTurn);
+    }
 }
