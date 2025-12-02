@@ -211,7 +211,7 @@ pub fn despawn_inventory_ui_system(
     ui_query: Query<Entity, With<InventoryUiRoot>>,
 ) {
     for entity in ui_query.iter() {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }
 
@@ -400,9 +400,9 @@ pub fn rebuild_inventory_ui_system(
     // Save current selection index
     let selected_index = selection_query.single().map(|s| s.selected_index).unwrap_or(0);
 
-    // Despawn old UI
+    // Despawn old UI (if it still exists - it might have been despawned by state transition)
     for entity in ui_query.iter() {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 
     // Rebuild UI with updated inventory

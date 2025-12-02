@@ -28,6 +28,7 @@ use systems::{
     inventory_ui::*,
     metal_detector::*,
     contract_ui::*,
+    bolt_throwing::*,
 };
 use constants::*;
 
@@ -101,7 +102,7 @@ fn main() {
         .add_systems(
             Update,
             (
-                // Running mode - camera follows player, player transform syncs, HUD updates, ground items, metal detector
+                // Running mode - camera follows player, player transform syncs, HUD updates, ground items, metal detector, bolt trails
                 camera_follow_player_system,
                 sync_player_transform_system,
                 update_turn_counter_system,
@@ -109,15 +110,17 @@ fn main() {
                 update_message_log_system,
                 update_ground_item_sprites_system,
                 update_metal_detector_system,
+                update_bolt_trail_system,
             ).run_if(in_state(GameState::Running)),
         )
         .add_systems(
             Update,
             (
-                // PlayerTurn phase - handle movement input, item inspection, inventory, and exit detection
+                // PlayerTurn phase - handle movement input, item inspection, inventory, bolt throwing, and exit detection
                 player_movement_system,
                 detect_inspect_input_system,
                 detect_inventory_input_system,
+                detect_bolt_throw_input_system,
                 detect_exit_system,
             ).run_if(in_state(GameState::Running))
              .run_if(in_state(TurnPhase::PlayerTurn)),
@@ -137,12 +140,27 @@ fn main() {
              .run_if(in_state(GameState::Running))
              .run_if(in_state(TurnPhase::WorldUpdate)),
         )
+        .add_systems(OnEnter(TurnPhase::ThrowingBolt), (
+            spawn_bolt_indicator_system,
+        ))
+        .add_systems(OnExit(TurnPhase::ThrowingBolt), (
+            despawn_bolt_indicator_system,
+        ))
         .add_systems(OnEnter(TurnPhase::InspectingItems), (
             spawn_inspect_ui_system,
         ))
         .add_systems(OnExit(TurnPhase::InspectingItems), (
             despawn_inspect_ui_system,
         ))
+        .add_systems(
+            Update,
+            (
+                // ThrowingBolt phase - handle direction selection and bolt animation
+                bolt_direction_input_system,
+                animate_bolt_flight_system,
+            ).run_if(in_state(GameState::Running))
+             .run_if(in_state(TurnPhase::ThrowingBolt)),
+        )
         .add_systems(
             Update,
             (
