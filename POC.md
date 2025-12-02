@@ -372,11 +372,60 @@ Turn-based roguelike where players explore a 25x25 Zone, detect anomalies using 
 - Metal detector indicator (when equipped and metal detected)
 - **Implementation**: See "Implementation Status" section above for full details
 
-### 9. Win/Loss Conditions
+### 9. Win/Loss Conditions ✅ COMPLETE
 
-**Win**: Return to entrance/exit with items → Complete contract (objective: extract with artifacts)
+**Contract System**:
+- Mission Briefing screen on zone entry (EnteringZone phase)
+- Shows active contracts (e.g., "Collect 3 artifacts of value 100 or greater")
+- Press E to accept and begin
 
-**Loss**: Death in Gravitational anomaly (5 turns) → Full reset (permadeath)
+**Win Condition**:
+- Reach exit tile → Extraction screen (ExitingZone phase)
+- Shows contract completion status with [COMPLETE]/[FAILED] markers
+- Press E to exit zone and restart with new contracts
+
+**Loss Condition**:
+- Death in Gravitational anomaly (timer reaches 0)
+- Death screen appears (PlayerDead phase)
+- Shows "Red has met his end in the Zone"
+- Press E to restart with new stalker
+
+**Implementation**:
+- Contract validation checks inventory against contract requirements
+- Auto-restart system: death/exit → transition to Editing → auto-restart to Running
+- All game state resets: contracts, turn counter, message log
+- Files: `src/systems/contract_ui.rs`, `src/resources/contract_system.rs`
+
+## UI Standards
+
+### Modal Screen Typography
+All modal screens (Mission Briefing, Extraction, Death, Inspect, Inventory) use consistent font sizes:
+
+| Element | Font Size | Usage |
+|---------|-----------|-------|
+| **Titles** | 24.0 | Main screen titles (e.g., "Mission Briefing", "DEATH", "Extraction Point") |
+| **Subtitles/Headers** | 16.0 | Section headers (e.g., "Active Contracts:", "Contract Status:") |
+| **Body Text** | 18.0 | Item descriptions, contract details, main content |
+| **Help Text** | 16.0 | Input prompts (e.g., "E - Accept and Enter the Zone") |
+| **Status Markers** | 16.0 | Completion indicators like [COMPLETE]/[FAILED] |
+
+### Text Label Standards
+- Use **text labels** instead of Unicode symbols for better font compatibility
+- Status indicators: `[COMPLETE]` (green) and `[FAILED]` (red)
+- Avoid Unicode characters like ✓ and ✗ which may not render correctly in default fonts
+
+### Modal Styling
+- Semi-transparent dark overlay (rgba 0,0,0,0.8) behind all modals
+- Modal panels: dark gray background (rgb 0.15,0.15,0.15) with gray borders
+- Minimum width: 500px, Maximum width: 700px
+- Padding: 30-40px, Row gap: 15-20px
+- Z-index: 100 for modal overlays
+
+### Color Palette
+- **Success/Positive**: Green (0.3, 0.9, 0.3) or (0.6, 0.9, 0.6)
+- **Failure/Negative**: Red (0.9, 0.3, 0.3) or (0.9, 0.2, 0.2)
+- **Highlight/Important**: Yellow (0.9, 0.9, 0.3)
+- **Neutral Text**: White or light gray (0.8, 0.8, 0.8)
 
 ## Technical Notes
 - Map size: 25x25 tiles (handcrafted via editor)
