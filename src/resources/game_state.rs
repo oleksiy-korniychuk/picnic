@@ -5,4 +5,5 @@ pub enum GameState {
     Running,
     #[default]
     Editing,
+    InBaseHub,
 }

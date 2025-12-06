@@ -13,3 +13,4 @@ pub mod inventory_ui;
 pub mod metal_detector;
 pub mod contract_ui;
 pub mod bolt_throwing;
+pub mod base_hub_ui;

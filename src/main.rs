@@ -29,6 +29,7 @@ use systems::{
     metal_detector::*,
     contract_ui::*,
     bolt_throwing::*,
+    base_hub_ui::*,
 };
 use constants::*;
 
@@ -47,6 +48,7 @@ fn main() {
         }))
         .init_state::<GameState>()
         .init_state::<TurnPhase>()
+        .init_state::<BaseHubMode>()
         .init_resource::<CameraZoom>()
         .init_resource::<CameraPosition>()
         .init_resource::<EditorState>()
@@ -233,6 +235,29 @@ fn main() {
                 close_death_ui_system,
             ).run_if(in_state(GameState::Running))
              .run_if(in_state(TurnPhase::PlayerDead)),
+        )
+        .add_systems(OnEnter(GameState::InBaseHub), (
+            reset_base_hub_mode_system,
+        ))
+        .add_systems(OnExit(GameState::InBaseHub), (
+            cleanup_base_hub_ui_system,
+        ))
+        .add_systems(
+            Update,
+            (
+                // Spawn/despawn UI based on mode changes while in base hub
+                handle_stash_ui_spawn_system,
+                handle_contracts_ui_spawn_system,
+            ).run_if(in_state(GameState::InBaseHub)),
+        )
+        .add_systems(
+            Update,
+            (
+                // Base Hub - input handling
+                toggle_base_hub_mode_system,
+                enter_zone_from_base_system,
+                base_hub_escape_system,
+            ).run_if(in_state(GameState::InBaseHub)),
         )
         .add_systems(
             Update,

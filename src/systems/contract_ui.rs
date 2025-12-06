@@ -291,14 +291,18 @@ pub fn despawn_exit_zone_ui_system(
     }
 }
 
-/// Handles E key to exit zone and reset game
+/// Handles E key to exit zone and return to base hub
 pub fn close_exit_zone_ui_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut next_state: ResMut<NextState<GameState>>,
+    mut next_phase: ResMut<NextState<TurnPhase>>,
 ) {
     if keyboard.just_pressed(KeyCode::KeyE) {
-        // Transition to Editing which will trigger reset and then back to Running
-        next_state.set(GameState::Editing);
+        // Transition to InBaseHub (Stash Management screen)
+        next_state.set(GameState::InBaseHub);
+        // Reset turn phase to PlayerTurn (will be overridden when re-entering zone)
+        next_phase.set(TurnPhase::PlayerTurn);
+        info!("Returning to base hub after extraction");
     }
 }
 

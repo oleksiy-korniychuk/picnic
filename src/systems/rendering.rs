@@ -69,8 +69,8 @@ pub fn get_entity_color(entity_type: EntityType, game_state: &GameState) -> Colo
                 EntityType::LampPost => Color::srgb(1.0, 1.0, 0.0),      // Yellow
             }
         }
-        GameState::Editing => {
-            // In Editor mode: color-coded anomalies for easy identification
+        GameState::Editing | GameState::InBaseHub => {
+            // In Editor mode and Base Hub: color-coded anomalies for easy identification
             match entity_type {
                 EntityType::GravitationalAnomaly => Color::srgb(0.53, 0.0, 1.0), // Purple
                 EntityType::PhilosopherStone => Color::srgb(1.0, 0.84, 0.0),     // Gold

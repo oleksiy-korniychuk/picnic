@@ -42,6 +42,9 @@ pub fn editor_toggle_system(
             GameState::Editing => {
                 next_state.set(GameState::Running);
             }
+            GameState::InBaseHub => {
+                // F2 does nothing in base hub (use Space to enter zone)
+            }
         }
     }
 }
