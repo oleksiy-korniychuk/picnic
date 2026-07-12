@@ -2,10 +2,11 @@ use bevy::prelude::*;
 use crate::components::components::{Player, Position};
 use crate::components::inventory::Inventory;
 use crate::resources::{
-    game_grid::{EntityType, GameGrid, ItemType},
+    game_grid::{EntityType, GameGrid},
     camera::CameraPosition,
     turn_state::{TurnPhase, TurnCounter},
     message_log::MessageLog,
+    stash_system::RunInventory,
 };
 use crate::systems::rendering::grid_to_world;
 use crate::constants::TILE_SIZE;
@@ -21,6 +22,7 @@ pub fn spawn_player_system(
     mut turn_counter: ResMut<TurnCounter>,
     mut next_phase: ResMut<NextState<TurnPhase>>,
     mut message_log: ResMut<MessageLog>,
+    run_inventory: Res<RunInventory>,
 ) {
     // Find the PlayerStart entity
     let player_start_pos = entity_query
@@ -45,16 +47,15 @@ pub fn spawn_player_system(
             grid.height,
         );
 
-        // Create starting inventory (10 Bolts + Metal Detector)
+        // Clone RunInventory into player's starting inventory
         let mut starting_inventory = Inventory::new();
-
-        // Add 10 Bolts
-        for _ in 0..10 {
-            starting_inventory.add_item(ItemType::Bolt.into());
+        for item in run_inventory.items.iter() {
+            starting_inventory.add_item(item.clone());
         }
 
-        // Add Metal Detector
-        starting_inventory.add_item(ItemType::MetalDetector.into());
+        info!("Player spawned with {} items from RunInventory (total weight: {})",
+              starting_inventory.count(),
+              starting_inventory.total_weight());
 
         // Spawn player entity with inventory
         commands.spawn((

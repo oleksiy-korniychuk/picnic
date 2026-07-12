@@ -12,6 +12,7 @@ use resources::{
     turn_state::{TurnPhase, TurnCounter},
     message_log::MessageLog,
     contract_system::ContractSystem,
+    stash_system::{Stash, RunInventory},
 };
 use components::inventory::CarryCapacity;
 use systems::{
@@ -58,6 +59,8 @@ fn main() {
         .init_resource::<CarryCapacity>()
         .init_resource::<ContractSystem>()
         .init_resource::<AutoRestartFlag>()
+        .init_resource::<Stash>()
+        .init_resource::<RunInventory>()
         .add_systems(
             Startup,
             (
@@ -253,7 +256,12 @@ fn main() {
         .add_systems(
             Update,
             (
-                // Base Hub - input handling
+                // Base Hub - navigation and item management
+                base_hub_navigation_system,
+                base_hub_move_item_system,
+                update_base_hub_highlighting_system,
+                rebuild_stash_ui_system,
+                // Base Hub - mode switching and exit
                 toggle_base_hub_mode_system,
                 enter_zone_from_base_system,
                 base_hub_escape_system,

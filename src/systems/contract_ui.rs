@@ -9,6 +9,7 @@ use crate::resources::{
     game_state::GameState,
     turn_state::TurnCounter,
     message_log::MessageLog,
+    stash_system::{Stash, RunInventory},
 };
 
 // ============================================================================
@@ -296,8 +297,21 @@ pub fn close_exit_zone_ui_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut next_state: ResMut<NextState<GameState>>,
     mut next_phase: ResMut<NextState<TurnPhase>>,
+    player_query: Query<&Inventory, With<Player>>,
+    mut run_inventory: ResMut<RunInventory>,
 ) {
     if keyboard.just_pressed(KeyCode::KeyE) {
+        // Save player's inventory to RunInventory before returning to base
+        if let Ok(player_inventory) = player_query.get_single() {
+            run_inventory.clear();
+            for item in player_inventory.items.iter() {
+                run_inventory.add_item(item.clone());
+            }
+            info!("Saved {} items from player to RunInventory (weight: {})",
+                  run_inventory.count(),
+                  run_inventory.total_weight());
+        }
+
         // Transition to InBaseHub (Stash Management screen)
         next_state.set(GameState::InBaseHub);
         // Reset turn phase to PlayerTurn (will be overridden when re-entering zone)
@@ -469,11 +483,18 @@ pub fn prepare_restart_system(
     mut contract_system: ResMut<ContractSystem>,
     mut turn_counter: ResMut<TurnCounter>,
     mut message_log: ResMut<MessageLog>,
+    mut stash: ResMut<Stash>,
+    mut run_inventory: ResMut<RunInventory>,
 ) {
     // Reset game state
     contract_system.reset();
     turn_counter.0 = 0;
     message_log.clear();
+
+    // PERMADEATH: Reset stash and run inventory
+    stash.clear();
+    run_inventory.reset_to_starter();
+    info!("PERMADEATH: Reset stash and RunInventory to starter loadout");
 
     // Set flag to restart
     auto_restart.should_restart = true;

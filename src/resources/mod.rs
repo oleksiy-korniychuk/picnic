@@ -8,3 +8,4 @@ pub mod map_data;
 pub mod turn_state;
 pub mod message_log;
 pub mod contract_system;
+pub mod stash_system;
