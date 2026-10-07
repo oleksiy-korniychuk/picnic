@@ -3,9 +3,10 @@ use crate::components::{
     components::{Player, Position},
     inventory::Inventory,
 };
+use crate::systems::ui_kit::*;
 use crate::resources::{
     turn_state::TurnPhase,
-    contract_system::{ContractSystem, ContractStatus},
+    contract_system::ContractSystem,
     game_state::GameState,
     turn_state::TurnCounter,
     message_log::MessageLog,
@@ -31,95 +32,30 @@ pub fn spawn_enter_zone_ui_system(
         return;
     }
 
-    // Create modal UI
-    commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.8)),
-            EnterZoneUiRoot,
-            ZIndex(100),
-        ))
-        .with_children(|parent| {
-            // Modal panel
-            parent
-                .spawn((
-                    Node {
-                        flex_direction: FlexDirection::Column,
-                        padding: UiRect::all(Val::Px(30.0)),
-                        row_gap: Val::Px(15.0),
-                        min_width: Val::Px(500.0),
-                        max_width: Val::Px(700.0),
-                        ..default()
-                    },
-                    BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
-                    BorderColor(Color::srgb(0.5, 0.5, 0.5)),
-                ))
-                .with_children(|parent| {
-                    // Title
-                    parent.spawn((
-                        Text::new("Mission Briefing"),
-                        TextFont {
-                            font_size: 24.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.9, 0.9, 0.3)),
-                    ));
-
-                    // Subtitle
-                    parent.spawn((
-                        Text::new("Active Contracts:"),
-                        TextFont {
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.8, 0.8, 0.8)),
-                    ));
-
-                    // Contract list
-                    for (index, contract) in contract_system.active_contracts.iter().enumerate() {
-                        parent.spawn((
-                            Text::new(format!("{}. {}", index + 1, contract.description)),
-                            TextFont {
-                                font_size: 18.0,
-                                ..default()
-                            },
-                            TextColor(Color::WHITE),
-                            Node {
-                                padding: UiRect::all(Val::Px(10.0)),
-                                ..default()
-                            },
-                        ));
-                    }
-
-                    // Separator
-                    parent.spawn((
-                        Node {
-                            width: Val::Percent(100.0),
-                            height: Val::Px(2.0),
-                            margin: UiRect::vertical(Val::Px(10.0)),
-                            ..default()
-                        },
-                        BackgroundColor(Color::srgb(0.5, 0.5, 0.5)),
-                    ));
-
-                    // Help text
-                    parent.spawn((
-                        Text::new("E - Accept and Enter the Zone"),
-                        TextFont {
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.6, 0.9, 0.6)),
-                    ));
-                });
-        });
+    spawn_modal(
+        &mut commands,
+        EnterZoneUiRoot,
+        "Mission Briefing",
+        520.0,
+        380.0,
+        60.0,
+        true,
+        |content| {
+            modal_text(content, "Active Contracts:", FONT_SUB, COL_TEXT);
+            if contract_system.active_contracts.is_empty() {
+                modal_text(content, "No active contracts - free run.", FONT_BODY, COL_TEXT);
+            }
+            for (index, contract) in contract_system.active_contracts.iter().enumerate() {
+                modal_text(
+                    content,
+                    format!("{}. {}", index + 1, contract.description),
+                    FONT_BODY,
+                    Color::WHITE,
+                );
+            }
+        },
+        &[hint("E", "Accept and Enter"), hint("Esc", "Skip")],
+    );
 }
 
 /// Despawns the Enter Zone UI when exiting EnteringZone phase
@@ -137,7 +73,8 @@ pub fn close_enter_zone_ui_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut next_phase: ResMut<NextState<TurnPhase>>,
 ) {
-    if keyboard.just_pressed(KeyCode::KeyE) {
+    // E accepts the briefing; ESC skips it (the player is already in the Zone).
+    if keyboard.just_pressed(KeyCode::KeyE) || keyboard.just_pressed(KeyCode::Escape) {
         next_phase.set(TurnPhase::PlayerTurn);
     }
 }
@@ -169,117 +106,40 @@ pub fn spawn_exit_zone_ui_system(
 
     let contract_statuses = contract_system.validate_contracts(inventory);
 
-    // Create modal UI
-    commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.8)),
-            ExitZoneUiRoot,
-            ZIndex(100),
-        ))
-        .with_children(|parent| {
-            // Modal panel
-            parent
-                .spawn((
-                    Node {
-                        flex_direction: FlexDirection::Column,
-                        padding: UiRect::all(Val::Px(30.0)),
-                        row_gap: Val::Px(15.0),
-                        min_width: Val::Px(500.0),
-                        max_width: Val::Px(700.0),
+    spawn_modal(
+        &mut commands,
+        ExitZoneUiRoot,
+        "Extraction Point",
+        520.0,
+        380.0,
+        60.0,
+        true,
+        |content| {
+            modal_text(content, "Contract Status:", FONT_SUB, COL_TEXT);
+            if contract_statuses.is_empty() {
+                modal_text(content, "No active contracts.", FONT_BODY, COL_TEXT);
+            }
+            for status in contract_statuses.iter() {
+                let (marker, color) = if status.completed {
+                    ("[COMPLETE]", COL_SUCCESS)
+                } else {
+                    ("[FAILED]", COL_FAIL)
+                };
+                content
+                    .spawn(Node {
+                        flex_direction: FlexDirection::Row,
+                        column_gap: Val::Px(10.0),
+                        padding: UiRect::all(Val::Px(5.0)),
                         ..default()
-                    },
-                    BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
-                    BorderColor(Color::srgb(0.5, 0.5, 0.5)),
-                ))
-                .with_children(|parent| {
-                    // Title
-                    parent.spawn((
-                        Text::new("Extraction Point"),
-                        TextFont {
-                            font_size: 24.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.9, 0.9, 0.3)),
-                    ));
-
-                    // Contract status
-                    parent.spawn((
-                        Text::new("Contract Status:"),
-                        TextFont {
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.8, 0.8, 0.8)),
-                    ));
-
-                    // Contract list with completion status
-                    for status in contract_statuses.iter() {
-                        let (marker, color) = if status.completed {
-                            ("[COMPLETE]", Color::srgb(0.3, 0.9, 0.3)) // Green
-                        } else {
-                            ("[FAILED]", Color::srgb(0.9, 0.3, 0.3)) // Red
-                        };
-
-                        parent
-                            .spawn((
-                                Node {
-                                    flex_direction: FlexDirection::Row,
-                                    column_gap: Val::Px(10.0),
-                                    padding: UiRect::all(Val::Px(5.0)),
-                                    ..default()
-                                },
-                            ))
-                            .with_children(|parent| {
-                                parent.spawn((
-                                    Text::new(marker),
-                                    TextFont {
-                                        font_size: 16.0,
-                                        ..default()
-                                    },
-                                    TextColor(color),
-                                ));
-
-                                parent.spawn((
-                                    Text::new(&status.description),
-                                    TextFont {
-                                        font_size: 18.0,
-                                        ..default()
-                                    },
-                                    TextColor(Color::WHITE),
-                                ));
-                            });
-                    }
-
-                    // Separator
-                    parent.spawn((
-                        Node {
-                            width: Val::Percent(100.0),
-                            height: Val::Px(2.0),
-                            margin: UiRect::vertical(Val::Px(10.0)),
-                            ..default()
-                        },
-                        BackgroundColor(Color::srgb(0.5, 0.5, 0.5)),
-                    ));
-
-                    // Help text
-                    parent.spawn((
-                        Text::new("E - Exit the Zone"),
-                        TextFont {
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.6, 0.9, 0.6)),
-                    ));
-                });
-        });
+                    })
+                    .with_children(|row| {
+                        modal_text(row, marker, FONT_SUB, color);
+                        modal_text(row, status.description.clone(), FONT_BODY, Color::WHITE);
+                    });
+            }
+        },
+        &[hint("E", "Return to Base"), hint("Esc", "Stay in the Zone")],
+    );
 }
 
 /// Despawns the Exit Zone UI when exiting ExitingZone phase
@@ -300,6 +160,13 @@ pub fn close_exit_zone_ui_system(
     player_query: Query<&Inventory, With<Player>>,
     mut run_inventory: ResMut<RunInventory>,
 ) {
+    // ESC cancels the extraction and stays in the Zone (nothing is saved).
+    if keyboard.just_pressed(KeyCode::Escape) {
+        next_phase.set(TurnPhase::PlayerTurn);
+        info!("Extraction cancelled - staying in the Zone");
+        return;
+    }
+
     if keyboard.just_pressed(KeyCode::KeyE) {
         // Save player's inventory to RunInventory before returning to base
         if let Ok(player_inventory) = player_query.get_single() {
@@ -338,84 +205,34 @@ pub fn spawn_death_ui_system(
         return;
     }
 
-    // Create modal UI
-    commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.9)),
-            DeathUiRoot,
-            ZIndex(100),
-        ))
-        .with_children(|parent| {
-            // Modal panel
-            parent
-                .spawn((
-                    Node {
-                        flex_direction: FlexDirection::Column,
-                        padding: UiRect::all(Val::Px(40.0)),
-                        row_gap: Val::Px(20.0),
-                        min_width: Val::Px(500.0),
-                        max_width: Val::Px(700.0),
-                        align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    BackgroundColor(Color::srgb(0.1, 0.1, 0.1)),
-                    BorderColor(Color::srgb(0.8, 0.2, 0.2)),
-                ))
-                .with_children(|parent| {
-                    // Title
-                    parent.spawn((
-                        Text::new("DEATH"),
-                        TextFont {
-                            font_size: 24.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.9, 0.2, 0.2)),
-                    ));
-
-                    // Death message
-                    parent.spawn((
-                        Text::new("Red has met his end in the Zone"),
-                        TextFont {
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                        Node {
-                            margin: UiRect::vertical(Val::Px(20.0)),
-                            ..default()
-                        },
-                    ));
-
-                    // Separator
-                    parent.spawn((
-                        Node {
-                            width: Val::Percent(80.0),
-                            height: Val::Px(2.0),
-                            margin: UiRect::vertical(Val::Px(10.0)),
-                            ..default()
-                        },
-                        BackgroundColor(Color::srgb(0.5, 0.5, 0.5)),
-                    ));
-
-                    // Help text
-                    parent.spawn((
-                        Text::new("E - Restart with a new Stalker"),
-                        TextFont {
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.6, 0.9, 0.6)),
-                    ));
-                });
-        });
+    // Death keeps its accent styling: red border, darker overlay, dark panel.
+    spawn_modal_ex(
+        &mut commands,
+        DeathUiRoot,
+        "DEATH",
+        520.0,
+        380.0,
+        60.0,
+        false,
+        |content| {
+            modal_text(
+                content,
+                "Red has met his end in the Zone",
+                FONT_SUB,
+                Color::srgb(0.9, 0.9, 0.9),
+            );
+            modal_text(
+                content,
+                "Permadeath: stash, inventory and contracts reset to the\nstarter loadout.",
+                FONT_BODY,
+                COL_TEXT,
+            );
+        },
+        &[hint("E", "New Stalker")],
+        Color::srgb(0.8, 0.2, 0.2),
+        0.9,
+        Color::srgb(0.1, 0.1, 0.1),
+    );
 }
 
 /// Despawns the Death UI when exiting PlayerDead phase

@@ -31,6 +31,7 @@ use systems::{
     contract_ui::*,
     bolt_throwing::*,
     base_hub_ui::*,
+    ui_kit::*,
 };
 use constants::*;
 
@@ -61,6 +62,7 @@ fn main() {
         .init_resource::<AutoRestartFlag>()
         .init_resource::<Stash>()
         .init_resource::<RunInventory>()
+        .init_resource::<QuitConfirmState>()
         .add_systems(
             Startup,
             (
@@ -88,9 +90,15 @@ fn main() {
             Update,
             (
                 // Always active
-                editor_toggle_system,
-                camera_zoom_system,
-                exit_on_escape_system,
+                // Key-driven systems are gated on no_modal_open so keys never
+                // act underneath an open modal (quit confirm, inspect, ...).
+                editor_toggle_system.run_if(no_modal_open()),
+                camera_zoom_system.run_if(zoom_allowed),
+                escape_menu_system,
+                quit_confirm_resolve_system,
+                maintain_key_bar_system,
+                modal_wheel_scroll_system,
+                debug_ui_dump_system,
                 toggle_editor_hud_visibility_system,
                 update_tile_sprite_system,
                 reload_tile_sprites_system,
@@ -128,7 +136,8 @@ fn main() {
                 detect_bolt_throw_input_system,
                 detect_exit_system,
             ).run_if(in_state(GameState::Running))
-             .run_if(in_state(TurnPhase::PlayerTurn)),
+             .run_if(in_state(TurnPhase::PlayerTurn))
+             .run_if(no_modal_open()),
         )
         .add_systems(
             Update,
@@ -174,6 +183,7 @@ fn main() {
                 inspect_navigation_system,
                 pickup_item_system,
                 update_inspect_ui_selection_system,
+                inspect_autoscroll_system,
                 rebuild_inspect_ui_system,
             ).run_if(in_state(GameState::Running))
              .run_if(in_state(TurnPhase::InspectingItems)),
@@ -255,23 +265,25 @@ fn main() {
                 base_hub_navigation_system,
                 base_hub_move_item_system,
                 update_base_hub_highlighting_system,
+                base_hub_autoscroll_system,
                 rebuild_stash_ui_system,
                 // Base Hub - mode switching and exit
                 toggle_base_hub_mode_system,
                 enter_zone_from_base_system,
-                base_hub_escape_system,
             )
                 // Explicit order matters: handle_* UI spawn/despawn must run and
                 // flush before rebuild_stash_ui_system checks for an existing
                 // root, otherwise both may defer a spawn of the same screen and
                 // end up with two stacked UI roots (breaking get_single queries).
+                // ESC/quit handling lives in escape_menu_system (global).
                 .chain()
-                .run_if(in_state(GameState::InBaseHub)),
+                .run_if(in_state(GameState::InBaseHub))
+                .run_if(no_modal_open()),
         )
         .add_systems(
             Update,
             (
-                // Editor-only systems
+                // Editor-only systems (gated: no input underneath modals)
                 editor_mode_toggle_system,
                 editor_selection_system,
                 editor_mouse_position_system,
@@ -279,6 +291,14 @@ fn main() {
                 editor_placement_system,
                 editor_save_load_system,
                 update_editor_hud_system,
+            ).run_if(in_state(GameState::Editing))
+             .run_if(no_modal_open()),
+        )
+        .add_systems(
+            Update,
+            (
+                // Death auto-restart must keep running in Editing regardless
+                // of any open modal.
                 auto_restart_system,
             ).run_if(in_state(GameState::Editing)),
         )

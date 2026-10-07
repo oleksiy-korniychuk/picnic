@@ -3,31 +3,18 @@ use bevy::input::mouse::{
     MouseScrollUnit,
     MouseWheel,
 };
-use bevy::app::AppExit;
 
 use crate::constants::*;
 use crate::components::components::{Player, Position};
 use crate::resources::{
     camera::{CameraZoom, CameraPosition},
     game_grid::GameGrid,
-    turn_state::TurnPhase,
 };
 use crate::systems::rendering::grid_to_world;
 
-pub fn exit_on_escape_system(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut exit: EventWriter<AppExit>,
-    turn_phase: Res<State<TurnPhase>>,
-) {
-    // Only exit the game if we're NOT in a modal UI phase
-    // (Modal phases have their own ESC handlers to close the UI)
-    if keyboard.just_pressed(KeyCode::Escape) {
-        let phase = turn_phase.get();
-        if *phase != TurnPhase::InspectingItems && *phase != TurnPhase::ViewingInventory {
-            exit.write(AppExit::Success);
-        }
-    }
-}
+// NOTE: the old instant-quit exit_on_escape_system was replaced by
+// ui_kit::escape_menu_system + quit_confirm_resolve_system (ESC now opens a
+// confirmation modal instead of killing the app outright).
 
 pub fn camera_zoom_system(
     mut commands: Commands,

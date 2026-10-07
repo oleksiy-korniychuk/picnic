@@ -3,6 +3,7 @@ use crate::resources::{
     game_state::GameState,
     stash_system::{Stash, RunInventory},
 };
+use crate::systems::ui_kit::*;
 
 // ============================================================================
 // BASE HUB MODE STATE
@@ -84,8 +85,8 @@ pub fn spawn_stash_management_ui_system(
 
 /// Shared builder for the Stash Management screen. Both the initial spawn and
 /// the data-change rebuild path go through this so a rebuilt UI is always
-/// identical to a freshly spawned one (the previous rebuild path was an
-/// unimplemented stub that rendered only "UI Rebuilding...").
+/// identical to a freshly spawned one. Built on the shared ui_kit modal
+/// scaffolding: responsive panel, per-panel scrolling, footer key hints.
 fn spawn_stash_ui_with_selection(
     commands: &mut Commands,
     run_inventory: &RunInventory,
@@ -98,265 +99,173 @@ fn spawn_stash_ui_with_selection(
 
     let selection_for_closure = selection; // Copy for use in closure
 
-    // Create full-screen modal UI
-    commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.8)),
-            StashManagementUiRoot,
-            selection,
-            ZIndex(100),
-        ))
-        .with_children(|parent| {
+    spawn_modal(
+        commands,
+        (StashManagementUiRoot, selection),
+        "Base Hub - Stash Management",
+        900.0,
+        640.0,
+        85.0,
+        false, // the two panel lists scroll individually (see below)
+        |content| {
             let selection = selection_for_closure; // Use the copy in closure
-            // Main panel container
-            parent
-                .spawn((
-                    Node {
-                        flex_direction: FlexDirection::Column,
-                        padding: UiRect::all(Val::Px(40.0)),
-                        row_gap: Val::Px(20.0),
-                        width: Val::Px(900.0),
-                        max_height: Val::Percent(90.0),
-                        ..default()
-                    },
-                    BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
-                    BorderColor(Color::srgb(0.5, 0.5, 0.5)),
-                ))
-                .with_children(|parent| {
-                    // Title
-                    parent.spawn((
-                        Text::new("Base Hub - Stash Management"),
-                        TextFont {
-                            font_size: 24.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.9, 0.9, 0.3)),
-                    ));
+            modal_text(content, "Money: 0 Rubles", FONT_SUB, COL_SUCCESS);
+            content.spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Px(2.0),
+                    margin: UiRect::vertical(Val::Px(10.0)),
+                    ..default()
+                },
+                BackgroundColor(COL_SEPARATOR),
+            ));
 
-                    // Money display
-                    parent.spawn((
-                        Text::new("Money: 0 Rubles"),
-                        TextFont {
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.3, 0.9, 0.3)),
-                    ));
-
-                    // Separator
-                    parent.spawn((
-                        Node {
-                            width: Val::Percent(100.0),
-                            height: Val::Px(2.0),
-                            margin: UiRect::vertical(Val::Px(10.0)),
-                            ..default()
-                        },
-                        BackgroundColor(Color::srgb(0.5, 0.5, 0.5)),
-                    ));
-
-                    // Two-panel layout (Run Inventory | Stash)
-                    parent
+            // Two-panel layout (Run Inventory | Stash); each panel is its own
+            // scroll area so long lists stay navigable in small windows.
+            content
+                .spawn(Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: Val::Px(20.0),
+                    width: Val::Percent(100.0),
+                    flex_grow: 1.0,
+                    ..default()
+                })
+                .with_children(|panels| {
+                    // Left panel: Run Inventory
+                    panels
                         .spawn((
                             Node {
-                                flex_direction: FlexDirection::Row,
-                                column_gap: Val::Px(20.0),
-                                width: Val::Percent(100.0),
-                                flex_grow: 1.0,
+                                flex_direction: FlexDirection::Column,
+                                row_gap: Val::Px(10.0),
+                                width: Val::Percent(50.0),
+                                padding: UiRect::all(Val::Px(15.0)),
+                                max_height: Val::Vh(48.0),
+                                overflow: Overflow::scroll_y(),
                                 ..default()
                             },
+                            BackgroundColor(COL_PANEL_INNER),
+                            BorderColor(Color::srgb(0.3, 0.5, 0.3)),
+                            ModalScrollArea,
+                            RunInventoryList,
                         ))
-                        .with_children(|parent| {
-                            // Left panel: Run Inventory
-                            parent
-                                .spawn((
-                                    Node {
-                                        flex_direction: FlexDirection::Column,
-                                        row_gap: Val::Px(10.0),
-                                        width: Val::Percent(50.0),
-                                        padding: UiRect::all(Val::Px(15.0)),
-                                        ..default()
-                                    },
-                                    BackgroundColor(Color::srgb(0.1, 0.1, 0.1)),
-                                    BorderColor(Color::srgb(0.3, 0.5, 0.3)),
-                                ))
-                                .with_children(|parent| {
-                                    // Panel header
-                                    parent.spawn((
-                                        Text::new(format!("Run Inventory ({}/250)", run_weight)),
-                                        TextFont {
-                                            font_size: 16.0,
+                        .with_children(|panel| {
+                            modal_text(
+                                panel,
+                                format!("Run Inventory ({}/250)", run_weight),
+                                FONT_SUB,
+                                COL_TEXT,
+                            );
+                            if run_inventory.is_empty() {
+                                modal_text(panel, "(Empty)", FONT_BODY, Color::srgb(0.5, 0.5, 0.5));
+                            }
+                            for (index, item) in run_inventory.items.iter().enumerate() {
+                                let value_str = match item.value {
+                                    Some(v) => format!("Value: {}", v),
+                                    None => "Tool".to_string(),
+                                };
+                                let item_text = format!(
+                                    "{}. {} (Weight: {}, {})",
+                                    index + 1,
+                                    item.name,
+                                    item.weight,
+                                    value_str
+                                );
+                                let is_selected = selection.active_panel == PanelSide::RunInventory
+                                    && selection.selected_index == index;
+                                let bg_color = if is_selected {
+                                    Color::srgb(0.3, 0.5, 0.3) // Highlighted green
+                                } else {
+                                    Color::srgb(0.1, 0.1, 0.1) // Normal dark
+                                };
+                                panel
+                                    .spawn((
+                                        Node {
+                                            padding: UiRect::all(Val::Px(5.0)),
                                             ..default()
                                         },
-                                        TextColor(Color::srgb(0.8, 0.8, 0.8)),
-                                    ));
-
-                                    // Display real items from RunInventory
-                                    if run_inventory.is_empty() {
-                                        parent.spawn((
-                                            Text::new("(Empty)"),
-                                            TextFont {
-                                                font_size: 18.0,
-                                                ..default()
-                                            },
-                                            TextColor(Color::srgb(0.5, 0.5, 0.5)),
-                                        ));
-                                    } else {
-                                        for (index, item) in run_inventory.items.iter().enumerate() {
-                                            let value_str = match item.value {
-                                                Some(v) => format!("Value: {}", v),
-                                                None => "Tool".to_string(),
-                                            };
-                                            let item_text = format!(
-                                                "{}. {} (Weight: {}, {})",
-                                                index + 1,
-                                                item.name,
-                                                item.weight,
-                                                value_str
-                                            );
-
-                                            // Determine if this item is selected
-                                            let is_selected = selection.active_panel == PanelSide::RunInventory
-                                                && selection.selected_index == index;
-                                            let bg_color = if is_selected {
-                                                Color::srgb(0.3, 0.5, 0.3) // Highlighted green
-                                            } else {
-                                                Color::srgb(0.1, 0.1, 0.1) // Normal dark
-                                            };
-
-                                            parent.spawn((
-                                                Node {
-                                                    padding: UiRect::all(Val::Px(5.0)),
-                                                    ..default()
-                                                },
-                                                BackgroundColor(bg_color),
-                                                RunInventoryItemRow { index },
-                                            ))
-                                            .with_children(|parent| {
-                                                parent.spawn((
-                                                    Text::new(item_text),
-                                                    TextFont {
-                                                        font_size: 18.0,
-                                                        ..default()
-                                                    },
-                                                    TextColor(Color::WHITE),
-                                                ));
-                                            });
-                                        }
-                                    }
-                                });
-
-                            // Right panel: Stash
-                            parent
-                                .spawn((
-                                    Node {
-                                        flex_direction: FlexDirection::Column,
-                                        row_gap: Val::Px(10.0),
-                                        width: Val::Percent(50.0),
-                                        padding: UiRect::all(Val::Px(15.0)),
-                                        ..default()
-                                    },
-                                    BackgroundColor(Color::srgb(0.1, 0.1, 0.1)),
-                                    BorderColor(Color::srgb(0.5, 0.5, 0.5)),
-                                ))
-                                .with_children(|parent| {
-                                    // Panel header
-                                    parent.spawn((
-                                        Text::new(format!("Stash ({}/1000)", stash_weight)),
-                                        TextFont {
-                                            font_size: 16.0,
-                                            ..default()
-                                        },
-                                        TextColor(Color::srgb(0.8, 0.8, 0.8)),
-                                    ));
-
-                                    // Display real items from Stash
-                                    if stash.is_empty() {
-                                        parent.spawn((
-                                            Text::new("(Empty)"),
-                                            TextFont {
-                                                font_size: 18.0,
-                                                ..default()
-                                            },
-                                            TextColor(Color::srgb(0.5, 0.5, 0.5)),
-                                        ));
-                                    } else {
-                                        for (index, item) in stash.items.iter().enumerate() {
-                                            let value_str = match item.value {
-                                                Some(v) => format!("Value: {}", v),
-                                                None => "Tool".to_string(),
-                                            };
-                                            let item_text = format!(
-                                                "{}. {} (Weight: {}, {})",
-                                                index + 1,
-                                                item.name,
-                                                item.weight,
-                                                value_str
-                                            );
-
-                                            // Determine if this item is selected
-                                            let is_selected = selection.active_panel == PanelSide::Stash
-                                                && selection.selected_index == index;
-                                            let bg_color = if is_selected {
-                                                Color::srgb(0.3, 0.5, 0.3) // Highlighted green
-                                            } else {
-                                                Color::srgb(0.1, 0.1, 0.1) // Normal dark
-                                            };
-
-                                            parent.spawn((
-                                                Node {
-                                                    padding: UiRect::all(Val::Px(5.0)),
-                                                    ..default()
-                                                },
-                                                BackgroundColor(bg_color),
-                                                StashItemRow { index },
-                                            ))
-                                            .with_children(|parent| {
-                                                parent.spawn((
-                                                    Text::new(item_text),
-                                                    TextFont {
-                                                        font_size: 18.0,
-                                                        ..default()
-                                                    },
-                                                    TextColor(Color::WHITE),
-                                                ));
-                                            });
-                                        }
-                                    }
-                                });
+                                        BackgroundColor(bg_color),
+                                        RunInventoryItemRow { index },
+                                    ))
+                                    .with_children(|row| {
+                                        modal_text(row, item_text, FONT_BODY, Color::WHITE);
+                                    });
+                            }
                         });
 
-                    // Separator
-                    parent.spawn((
-                        Node {
-                            width: Val::Percent(100.0),
-                            height: Val::Px(2.0),
-                            margin: UiRect::vertical(Val::Px(10.0)),
-                            ..default()
-                        },
-                        BackgroundColor(Color::srgb(0.5, 0.5, 0.5)),
-                    ));
-
-                    // Help text
-                    parent.spawn((
-                        Text::new("Tab - Contracts | Space - Enter Zone | ESC - Quit Game"),
-                        TextFont {
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.6, 0.6, 0.6)),
-                    ));
+                    // Right panel: Stash
+                    panels
+                        .spawn((
+                            Node {
+                                flex_direction: FlexDirection::Column,
+                                row_gap: Val::Px(10.0),
+                                width: Val::Percent(50.0),
+                                padding: UiRect::all(Val::Px(15.0)),
+                                max_height: Val::Vh(48.0),
+                                overflow: Overflow::scroll_y(),
+                                ..default()
+                            },
+                            BackgroundColor(COL_PANEL_INNER),
+                            BorderColor(COL_BORDER),
+                            ModalScrollArea,
+                            StashList,
+                        ))
+                        .with_children(|panel| {
+                            modal_text(panel, format!("Stash ({}/1000)", stash_weight), FONT_SUB, COL_TEXT);
+                            if stash.is_empty() {
+                                modal_text(panel, "(Empty)", FONT_BODY, Color::srgb(0.5, 0.5, 0.5));
+                            }
+                            for (index, item) in stash.items.iter().enumerate() {
+                                let value_str = match item.value {
+                                    Some(v) => format!("Value: {}", v),
+                                    None => "Tool".to_string(),
+                                };
+                                let item_text = format!(
+                                    "{}. {} (Weight: {}, {})",
+                                    index + 1,
+                                    item.name,
+                                    item.weight,
+                                    value_str
+                                );
+                                let is_selected = selection.active_panel == PanelSide::Stash
+                                    && selection.selected_index == index;
+                                let bg_color = if is_selected {
+                                    Color::srgb(0.3, 0.5, 0.3)
+                                } else {
+                                    Color::srgb(0.1, 0.1, 0.1)
+                                };
+                                panel
+                                    .spawn((
+                                        Node {
+                                            padding: UiRect::all(Val::Px(5.0)),
+                                            ..default()
+                                        },
+                                        BackgroundColor(bg_color),
+                                        StashItemRow { index },
+                                    ))
+                                    .with_children(|row| {
+                                        modal_text(row, item_text, FONT_BODY, Color::WHITE);
+                                    });
+                            }
+                        });
                 });
-        });
-}
 
+            // Footer hints (same [key] action format as the key bar)
+            content.spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Px(2.0),
+                    margin: UiRect::vertical(Val::Px(10.0)),
+                    ..default()
+                },
+                BackgroundColor(COL_BORDER_DIM),
+            ));
+            spawn_hint_row(content, HUB_STASH_HINTS, FONT_SUB);
+        },
+        // Panel footer repeats the bar hints (the full-screen stash overlay
+        // covers the bottom bar, so it must advertise its own keys).
+        &[],
+    );
+}
 /// Despawns the Stash Management UI when exiting StashManagement mode
 pub fn despawn_stash_management_ui_system(
     mut commands: Commands,
@@ -395,6 +304,14 @@ pub fn handle_stash_ui_spawn_system(
 // ============================================================================
 
 /// Marker component for the Contracts UI root
+/// Marker for the Run Inventory panel list (autoscroll + wheel target)
+#[derive(Component)]
+pub struct RunInventoryList;
+
+/// Marker for the Stash panel list (autoscroll + wheel target)
+#[derive(Component)]
+pub struct StashList;
+
 #[derive(Component)]
 pub struct ContractsUiRoot;
 
@@ -432,7 +349,9 @@ pub fn spawn_contracts_ui_system(
                         padding: UiRect::all(Val::Px(40.0)),
                         row_gap: Val::Px(20.0),
                         width: Val::Px(700.0),
-                        max_height: Val::Percent(90.0),
+                        min_width: Val::Px(560.0),
+                        max_width: Val::Vw(80.0),
+                        max_height: Val::Vh(88.0),
                         ..default()
                     },
                     BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
@@ -521,15 +440,19 @@ pub fn spawn_contracts_ui_system(
                         BackgroundColor(Color::srgb(0.5, 0.5, 0.5)),
                     ));
 
-                    // Help text
+                    // Footer hints (same [key] action format as the key bar).
+                    // E is intentionally not listed: contract interaction is
+                    // not wired yet (placeholder screen).
                     parent.spawn((
-                        Text::new("Tab - Stash Management | E - Select/Turn In | ESC - Quit Game"),
-                        TextFont {
-                            font_size: 16.0,
+                        Node {
+                            width: Val::Percent(100.0),
+                            height: Val::Px(2.0),
+                            margin: UiRect::vertical(Val::Px(10.0)),
                             ..default()
                         },
-                        TextColor(Color::srgb(0.6, 0.6, 0.6)),
+                        BackgroundColor(COL_BORDER_DIM),
                     ));
+                    spawn_hint_row(parent, HUB_CONTRACTS_HINTS, FONT_SUB);
                 });
         });
 }
@@ -602,15 +525,54 @@ pub fn enter_zone_from_base_system(
 }
 
 /// Handles ESC key to quit game (temporary placeholder)
-pub fn base_hub_escape_system(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut exit: EventWriter<AppExit>,
+// NOTE: the old instant-quit base_hub_escape_system was replaced by the
+// global ui_kit::escape_menu_system (ESC opens a quit confirmation).
+
+/// Scrolls the active panel's list so the selected row stays visible.
+pub fn base_hub_autoscroll_system(
+    mut lists: Query<
+        (
+            &ComputedNode,
+            &mut ScrollPosition,
+            Option<&RunInventoryList>,
+            Option<&StashList>,
+        ),
+        With<ModalScrollArea>,
+    >,
+    selection_query: Query<&BaseHubSelection, With<StashManagementUiRoot>>,
+    run_rows: Query<&RunInventoryItemRow>,
+    stash_rows: Query<&StashItemRow>,
 ) {
-    if keyboard.just_pressed(KeyCode::Escape) {
-        info!("[BASE HUB] Key pressed: Escape (quit game)");
-        info!("Quitting game from base hub");
-        exit.send(AppExit::Success);
+    let Ok(selection) = selection_query.get_single() else {
+        return;
+    };
+    let Ok((node, mut scroll, is_run, is_stash)) = lists.get_single_mut() else {
+        return;
+    };
+
+    // Only the panel matching the active selection scrolls.
+    let (count, selected) = match (is_run.is_some(), is_stash.is_some()) {
+        (true, false) if selection.active_panel == PanelSide::RunInventory => {
+            (run_rows.iter().count(), selection.selected_index)
+        }
+        (false, true) if selection.active_panel == PanelSide::Stash => {
+            (stash_rows.iter().count(), selection.selected_index)
+        }
+        _ => return,
+    };
+    if count == 0 {
+        return;
     }
+    let content_height = node.content_size().y * node.inverse_scale_factor;
+    let view_height = node.size().y * node.inverse_scale_factor;
+    let row_height = content_height / count as f32;
+    scroll_selection_into_view(
+        &mut *scroll,
+        content_height,
+        view_height,
+        selected,
+        row_height,
+    );
 }
 
 /// Cleanup system to despawn all base hub UIs when exiting the base hub state

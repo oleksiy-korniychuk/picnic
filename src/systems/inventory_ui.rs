@@ -2,21 +2,16 @@ use bevy::prelude::*;
 use crate::components::{
     components::{Player, Position},
     inventory::{Inventory, CarryCapacity},
-    item::GroundItems,
+    item::{GroundItems, Item},
 };
-use crate::resources::{
-    turn_state::TurnPhase,
-};
+use crate::resources::turn_state::TurnPhase;
+use crate::systems::ui_kit::*;
 
 /// Marker component for the inventory UI root
 #[derive(Component)]
 pub struct InventoryUiRoot;
 
-/// Marker component for inventory item list
-#[derive(Component)]
-pub struct InventoryItemList;
-
-/// Component tracking which item is selected
+/// Component tracking which item is selected (on the UI root)
 #[derive(Component)]
 pub struct InventorySelection {
     pub selected_index: usize,
@@ -38,6 +33,90 @@ pub fn detect_inventory_input_system(
     }
 }
 
+fn inventory_row_text(index: usize, item: &Item) -> String {
+    let value_str = match item.value {
+        Some(v) => format!("Value: {}", v),
+        None => "Tool".to_string(),
+    };
+    let metal_str = if item.is_metal { " [Metal]" } else { "" };
+    format!(
+        "{}. {} (Weight: {}, {}){}",
+        index + 1,
+        item.name,
+        item.weight,
+        value_str,
+        metal_str
+    )
+}
+
+/// Shared builder for the inventory modal (spawn and rebuild paths).
+fn build_inventory_ui(
+    commands: &mut Commands,
+    inventory: &Inventory,
+    selected: usize,
+    current_weight: u32,
+    max_capacity: u32,
+    gravity_active: bool,
+) -> Entity {
+    let is_overweight = current_weight > max_capacity;
+
+    spawn_modal(
+        commands,
+        (
+            InventoryUiRoot,
+            InventorySelection {
+                selected_index: selected,
+            },
+        ),
+        "Inventory",
+        640.0,
+        480.0,
+        55.0,
+        true,
+        |content| {
+            let weight_text = if is_overweight {
+                format!("Weight: {}/{} (OVERWEIGHT!)", current_weight, max_capacity)
+            } else {
+                format!("Weight: {}/{}", current_weight, max_capacity)
+            };
+            modal_text(
+                content,
+                weight_text,
+                FONT_SUB,
+                if is_overweight { COL_FAIL } else { Color::srgb(0.7, 0.7, 0.7) },
+            );
+            if inventory.is_empty() {
+                modal_text(content, "(Empty)", FONT_BODY, Color::srgb(0.5, 0.5, 0.5));
+            }
+            for (index, item) in inventory.items.iter().enumerate() {
+                let bg_color = if index == selected {
+                    Color::srgb(0.3, 0.5, 0.3) // Highlighted (green)
+                } else {
+                    Color::srgb(0.1, 0.1, 0.1) // Normal
+                };
+                content
+                    .spawn((
+                        Node {
+                            padding: UiRect::all(Val::Px(5.0)),
+                            ..default()
+                        },
+                        BackgroundColor(bg_color),
+                        InventoryItemRow { index },
+                    ))
+                    .with_children(|row| {
+                        modal_text(row, inventory_row_text(index, item), FONT_BODY, Color::srgb(0.9, 0.9, 0.9));
+                    });
+            }
+            let _ = gravity_active; // reserved: capacity switch messaging
+        },
+        &[
+            hint("W/S", "Select"),
+            hint("D", "Drop"),
+            hint("Esc", "Close"),
+        ],
+    )
+}
+
 /// Spawns the inventory UI when entering ViewingInventory phase
 pub fn spawn_inventory_ui_system(
     mut commands: Commands,
@@ -55,154 +134,20 @@ pub fn spawn_inventory_ui_system(
         return;
     };
 
-    let current_weight = inventory.total_weight();
     let max_capacity = if gravity_timer.is_some() {
         capacity.in_gravity
     } else {
         capacity.normal
     };
-    let is_overweight = current_weight > max_capacity;
 
-    // Create modal UI - similar to inspect UI structure
-    commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.7)), // Semi-transparent overlay
-            InventoryUiRoot,
-            ZIndex(100), // Ensure it's on top
-        ))
-        .with_children(|parent| {
-            // Modal panel
-            parent
-                .spawn((
-                    Node {
-                        flex_direction: FlexDirection::Column,
-                        padding: UiRect::all(Val::Px(20.0)),
-                        row_gap: Val::Px(10.0),
-                        width: Val::Px(600.0),
-                        max_height: Val::Percent(80.0),
-                        ..default()
-                    },
-                    BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
-                    BorderColor(Color::srgb(0.5, 0.5, 0.5)),
-                ))
-                .with_children(|parent| {
-                    // Title
-                    parent.spawn((
-                        Text::new("Inventory"),
-                        TextFont {
-                            font_size: 24.0,
-                            ..default()
-                        },
-                        TextColor(Color::WHITE),
-                    ));
-
-                    // Weight display
-                    let weight_text = if is_overweight {
-                        format!("Weight: {}/{} (OVERWEIGHT!)", current_weight, max_capacity)
-                    } else {
-                        format!("Weight: {}/{}", current_weight, max_capacity)
-                    };
-                    parent.spawn((
-                        Text::new(weight_text),
-                        TextFont {
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        TextColor(if is_overweight {
-                            Color::srgb(1.0, 0.3, 0.3)
-                        } else {
-                            Color::srgb(0.7, 0.7, 0.7)
-                        }),
-                    ));
-
-                    // Item list
-                    parent
-                        .spawn((
-                            Node {
-                                flex_direction: FlexDirection::Column,
-                                row_gap: Val::Px(5.0),
-                                overflow: Overflow::scroll_y(),
-                                max_height: Val::Px(400.0),
-                                padding: UiRect::all(Val::Px(10.0)),
-                                ..default()
-                            },
-                            BackgroundColor(Color::srgb(0.1, 0.1, 0.1)),
-                            InventoryItemList,
-                            InventorySelection { selected_index: 0 },
-                        ))
-                        .with_children(|parent| {
-                            if inventory.is_empty() {
-                                parent.spawn((
-                                    Text::new("(Empty)"),
-                                    TextFont {
-                                        font_size: 18.0,
-                                        ..default()
-                                    },
-                                    TextColor(Color::srgb(0.5, 0.5, 0.5)),
-                                ));
-                            } else {
-                                for (index, item) in inventory.items.iter().enumerate() {
-                                    let value_str = match item.value {
-                                        Some(v) => format!("Value: {}", v),
-                                        None => "Tool".to_string(),
-                                    };
-                                    let metal_str = if item.is_metal { " [Metal]" } else { "" };
-                                    let item_text = format!(
-                                        "{}. {} (Weight: {}, {}){}",
-                                        index + 1,
-                                        item.name,
-                                        item.weight,
-                                        value_str,
-                                        metal_str
-                                    );
-
-                                    let bg_color = if index == 0 {
-                                        Color::srgb(0.3, 0.5, 0.3) // Highlighted (green)
-                                    } else {
-                                        Color::srgb(0.1, 0.1, 0.1) // Normal
-                                    };
-
-                                    parent.spawn((
-                                        Node {
-                                            padding: UiRect::all(Val::Px(5.0)),
-                                            ..default()
-                                        },
-                                        BackgroundColor(bg_color),
-                                        InventoryItemRow { index },
-                                    ))
-                                    .with_children(|parent| {
-                                        parent.spawn((
-                                            Text::new(item_text),
-                                            TextFont {
-                                                font_size: 18.0,
-                                                ..default()
-                                            },
-                                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                                        ));
-                                    });
-                                }
-                            }
-                        });
-
-                    // Help text
-                    parent.spawn((
-                        Text::new("W/S to select, D to drop, ESC to close"),
-                        TextFont {
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.6, 0.6, 0.6)),
-                    ));
-                });
-        });
+    build_inventory_ui(
+        &mut commands,
+        inventory,
+        0,
+        inventory.total_weight(),
+        max_capacity,
+        gravity_timer.is_some(),
+    );
 }
 
 /// Despawns the inventory UI when exiting ViewingInventory phase
@@ -226,7 +171,7 @@ pub fn close_inventory_ui_system(
     }
 }
 
-/// Handles W/S key navigation in inventory
+/// Handles W/S and arrow navigation in inventory
 pub fn inventory_navigation_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut selection_query: Query<&mut InventorySelection>,
@@ -246,12 +191,15 @@ pub fn inventory_navigation_system(
 
     let max_index = inventory.count() - 1;
 
-    // S = down, W = up (consistent with movement)
-    if keyboard.just_pressed(KeyCode::KeyS) {
+    // S = down, W = up (consistent with movement); arrows work too
+    let down = keyboard.just_pressed(KeyCode::KeyS) || keyboard.just_pressed(KeyCode::ArrowDown);
+    let up = keyboard.just_pressed(KeyCode::KeyW) || keyboard.just_pressed(KeyCode::ArrowUp);
+
+    if down {
         if selection.selected_index < max_index {
             selection.selected_index += 1;
         }
-    } else if keyboard.just_pressed(KeyCode::KeyW) {
+    } else if up {
         if selection.selected_index > 0 {
             selection.selected_index -= 1;
         }
@@ -336,48 +284,33 @@ pub fn update_inventory_ui_selection_system(
     }
 }
 
-/// Auto-scrolls the inventory list to keep selected item visible
+/// Scrolls the selected row into view after navigation or rebuild.
+/// Uses measured layout (ComputedNode) instead of hardcoded row heights.
 pub fn auto_scroll_inventory_system(
     selection_query: Query<&InventorySelection, Changed<InventorySelection>>,
-    mut scroll_query: Query<&mut ScrollPosition, With<InventoryItemList>>,
+    mut scroll_query: Query<(&ComputedNode, &mut ScrollPosition), With<ModalScrollArea>>,
+    rows: Query<&InventoryItemRow>,
 ) {
-    // Only update scroll when selection changes
     let Ok(selection) = selection_query.single() else {
         return;
     };
-
-    let Ok(mut scroll_pos) = scroll_query.single_mut() else {
+    let Ok((node, mut scroll)) = scroll_query.single_mut() else {
         return;
     };
-
-    // Layout measurements:
-    // - Container: max_height 400px with 10px padding top/bottom
-    // - Each item: 5px pad + ~22px text + 5px pad + 5px gap = 37px
-    // - Measured: 10 full items + 1/3 of 11th visible in 380px viewport = 37px per item
-    const ITEM_HEIGHT: f32 = 37.0;
-    const VIEWPORT_HEIGHT: f32 = 380.0; // 400px container - 20px padding
-    const SCROLL_MARGIN: f32 = 20.0; // Trigger scrolling before item reaches edge
-
-    // Calculate item bounds in content space
-    let item_top = (selection.selected_index as f32) * ITEM_HEIGHT;
-    let item_bottom = item_top + ITEM_HEIGHT;
-
-    // Current visible range
-    let current_scroll = scroll_pos.offset_y;
-    let viewport_top = current_scroll;
-    let viewport_bottom = current_scroll + VIEWPORT_HEIGHT;
-
-    // Determine if we need to scroll
-    if item_top < viewport_top + SCROLL_MARGIN {
-        // Item is approaching top of viewport - scroll up
-        // Position item at SCROLL_MARGIN from top (but not negative)
-        scroll_pos.offset_y = (item_top - SCROLL_MARGIN).max(0.0);
-    } else if item_bottom > viewport_bottom - SCROLL_MARGIN {
-        // Item is approaching bottom of viewport - scroll down
-        // Position item at SCROLL_MARGIN from bottom
-        scroll_pos.offset_y = item_bottom + SCROLL_MARGIN - VIEWPORT_HEIGHT;
-        // Note: Bevy will automatically clamp to max scroll based on content height
+    let count = rows.iter().count();
+    if count == 0 {
+        return;
     }
+    let content_height = node.content_size().y * node.inverse_scale_factor;
+    let view_height = node.size().y * node.inverse_scale_factor;
+    let row_height = content_height / count as f32;
+    scroll_selection_into_view(
+        &mut *scroll,
+        content_height,
+        view_height,
+        selection.selected_index,
+        row_height,
+    );
 }
 
 /// Rebuilds inventory UI when inventory changes (e.g., after dropping items)
@@ -405,15 +338,6 @@ pub fn rebuild_inventory_ui_system(
         commands.entity(entity).despawn();
     }
 
-    // Rebuild UI with updated inventory
-    let current_weight = inventory.total_weight();
-    let max_capacity = if gravity_timer.is_some() {
-        capacity.in_gravity
-    } else {
-        capacity.normal
-    };
-    let is_overweight = current_weight > max_capacity;
-
     // Clamp selection to valid range
     let max_index = if inventory.is_empty() {
         0
@@ -422,139 +346,19 @@ pub fn rebuild_inventory_ui_system(
     };
     let clamped_selection = selected_index.min(max_index);
 
-    // Spawn new UI
-    commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.7)),
-            InventoryUiRoot,
-            ZIndex(100),
-        ))
-        .with_children(|parent| {
-            parent
-                .spawn((
-                    Node {
-                        flex_direction: FlexDirection::Column,
-                        padding: UiRect::all(Val::Px(20.0)),
-                        row_gap: Val::Px(10.0),
-                        width: Val::Px(600.0),
-                        max_height: Val::Percent(80.0),
-                        ..default()
-                    },
-                    BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
-                    BorderColor(Color::srgb(0.5, 0.5, 0.5)),
-                ))
-                .with_children(|parent| {
-                    parent.spawn((
-                        Text::new("Inventory"),
-                        TextFont {
-                            font_size: 24.0,
-                            ..default()
-                        },
-                        TextColor(Color::WHITE),
-                    ));
+    let max_capacity = if gravity_timer.is_some() {
+        capacity.in_gravity
+    } else {
+        capacity.normal
+    };
 
-                    let weight_text = if is_overweight {
-                        format!("Weight: {}/{} (OVERWEIGHT!)", current_weight, max_capacity)
-                    } else {
-                        format!("Weight: {}/{}", current_weight, max_capacity)
-                    };
-                    parent.spawn((
-                        Text::new(weight_text),
-                        TextFont {
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        TextColor(if is_overweight {
-                            Color::srgb(1.0, 0.3, 0.3)
-                        } else {
-                            Color::srgb(0.7, 0.7, 0.7)
-                        }),
-                    ));
-
-                    parent
-                        .spawn((
-                            Node {
-                                flex_direction: FlexDirection::Column,
-                                row_gap: Val::Px(5.0),
-                                overflow: Overflow::scroll_y(),
-                                max_height: Val::Px(400.0),
-                                padding: UiRect::all(Val::Px(10.0)),
-                                ..default()
-                            },
-                            BackgroundColor(Color::srgb(0.1, 0.1, 0.1)),
-                            InventoryItemList,
-                            InventorySelection { selected_index: clamped_selection },
-                        ))
-                        .with_children(|parent| {
-                            if inventory.is_empty() {
-                                parent.spawn((
-                                    Text::new("(Empty)"),
-                                    TextFont {
-                                        font_size: 18.0,
-                                        ..default()
-                                    },
-                                    TextColor(Color::srgb(0.5, 0.5, 0.5)),
-                                ));
-                            } else {
-                                for (index, item) in inventory.items.iter().enumerate() {
-                                    let value_str = match item.value {
-                                        Some(v) => format!("Value: {}", v),
-                                        None => "Tool".to_string(),
-                                    };
-                                    let metal_str = if item.is_metal { " [Metal]" } else { "" };
-                                    let item_text = format!(
-                                        "{}. {} (Weight: {}, {}){}",
-                                        index + 1,
-                                        item.name,
-                                        item.weight,
-                                        value_str,
-                                        metal_str
-                                    );
-
-                                    let bg_color = if index == clamped_selection {
-                                        Color::srgb(0.3, 0.5, 0.3)
-                                    } else {
-                                        Color::srgb(0.1, 0.1, 0.1)
-                                    };
-
-                                    parent.spawn((
-                                        Node {
-                                            padding: UiRect::all(Val::Px(5.0)),
-                                            ..default()
-                                        },
-                                        BackgroundColor(bg_color),
-                                        InventoryItemRow { index },
-                                    ))
-                                    .with_children(|parent| {
-                                        parent.spawn((
-                                            Text::new(item_text),
-                                            TextFont {
-                                                font_size: 18.0,
-                                                ..default()
-                                            },
-                                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                                        ));
-                                    });
-                                }
-                            }
-                        });
-
-                    parent.spawn((
-                        Text::new("W/S to select, D to drop, ESC to close"),
-                        TextFont {
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.6, 0.6, 0.6)),
-                    ));
-                });
-        });
+    // Rebuild UI with updated inventory
+    build_inventory_ui(
+        &mut commands,
+        inventory,
+        clamped_selection,
+        inventory.total_weight(),
+        max_capacity,
+        gravity_timer.is_some(),
+    );
 }

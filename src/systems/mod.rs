@@ -1,4 +1,5 @@
 pub mod ux;
+pub mod ui_kit;
 pub mod setup;
 pub mod input;
 pub mod editor;

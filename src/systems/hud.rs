@@ -4,6 +4,7 @@ use crate::resources::{
     turn_state::TurnCounter,
     message_log::MessageLog,
 };
+use crate::systems::ui_kit::KEY_BAR_HEIGHT;
 
 /// Spawns the game HUD when entering Running mode
 pub fn spawn_game_hud_system(
@@ -13,7 +14,8 @@ pub fn spawn_game_hud_system(
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                bottom: Val::Px(0.0),
+                // Sit above the bottom key bar strip (ui_kit).
+                bottom: Val::Px(KEY_BAR_HEIGHT + 4.0),
                 left: Val::Px(0.0),
                 right: Val::Px(0.0),
                 flex_direction: FlexDirection::Column,

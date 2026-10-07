@@ -1,22 +1,17 @@
 use bevy::prelude::*;
 use crate::components::{
     components::Player,
-    item::GroundItems,
+    item::{GroundItems, Item},
     inventory::{Inventory, CarryCapacity},
 };
-use crate::resources::{
-    turn_state::TurnPhase,
-    message_log::MessageLog,
-};
+use crate::resources::turn_state::TurnPhase;
+use crate::resources::message_log::MessageLog;
 use crate::systems::ground_items::GroundItemSprite;
+use crate::systems::ui_kit::*;
 
 /// Marker component for the inspect UI root
 #[derive(Component)]
 pub struct InspectUiRoot;
-
-/// Marker component for the item list container
-#[derive(Component)]
-pub struct InspectItemList;
 
 /// Marker component for individual item rows in inspect UI
 #[derive(Component)]
@@ -24,7 +19,7 @@ pub struct InspectItemRow {
     pub index: usize,
 }
 
-/// Component tracking which item is selected for pickup
+/// Component tracking which item is selected for pickup (on the UI root)
 #[derive(Component)]
 pub struct InspectSelection {
     pub selected_index: usize,
@@ -51,6 +46,78 @@ pub fn detect_inspect_input_system(
     }
 }
 
+fn inspect_row_text(index: usize, item: &Item) -> String {
+    let value_str = match item.value {
+        Some(v) => format!("Value: {}", v),
+        None => "Tool".to_string(),
+    };
+    let metal_str = if item.is_metal { " [Metal]" } else { "" };
+    format!(
+        "{}. {} (Weight: {}, {}){}",
+        index + 1,
+        item.name,
+        item.weight,
+        value_str,
+        metal_str
+    )
+}
+
+/// Shared builder for the inspect modal (spawn and rebuild paths).
+fn build_inspect_ui(
+    commands: &mut Commands,
+    items: &[Item],
+    selected: usize,
+    current_weight: u32,
+    capacity_normal: u32,
+) -> Entity {
+    spawn_modal(
+        commands,
+        (
+            InspectUiRoot,
+            InspectSelection {
+                selected_index: selected,
+            },
+        ),
+        "Items on Ground",
+        540.0,
+        400.0,
+        55.0,
+        true,
+        |content| {
+            modal_text(
+                content,
+                format!("Current Weight: {}/{}", current_weight, capacity_normal),
+                FONT_SUB,
+                Color::srgb(0.7, 0.7, 0.7),
+            );
+            for (index, item) in items.iter().enumerate() {
+                let bg_color = if index == selected {
+                    Color::srgb(0.3, 0.5, 0.3) // Highlighted (green)
+                } else {
+                    Color::srgb(0.1, 0.1, 0.1) // Normal
+                };
+                content
+                    .spawn((
+                        Node {
+                            padding: UiRect::all(Val::Px(5.0)),
+                            ..default()
+                        },
+                        BackgroundColor(bg_color),
+                        InspectItemRow { index },
+                    ))
+                    .with_children(|row| {
+                        modal_text(row, inspect_row_text(index, item), FONT_BODY, Color::srgb(0.9, 0.9, 0.9));
+                    });
+            }
+        },
+        &[
+            hint("W/S", "Select"),
+            hint("E", "Pick up"),
+            hint("Esc", "Close"),
+        ],
+    )
+}
+
 /// Spawns the inspect UI when entering InspectingItems phase
 pub fn spawn_inspect_ui_system(
     mut commands: Commands,
@@ -69,137 +136,21 @@ pub fn spawn_inspect_ui_system(
         return;
     };
 
-    let items = ground_items_query
+    let Some(items) = ground_items_query
         .iter()
         .find(|(pos, _)| pos.x == player_pos.x && pos.y == player_pos.y)
-        .map(|(_, ground_items)| &ground_items.items);
-
-    let Some(items) = items else {
+        .map(|(_, ground_items)| &ground_items.items)
+    else {
         return;
     };
 
-    let current_weight = inventory.total_weight();
-
-    // Create modal UI
-    commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.7)), // Semi-transparent overlay
-            InspectUiRoot,
-            ZIndex(100), // Ensure it's on top
-        ))
-        .with_children(|parent| {
-            // Modal panel
-            parent
-                .spawn((
-                    Node {
-                        flex_direction: FlexDirection::Column,
-                        padding: UiRect::all(Val::Px(20.0)),
-                        row_gap: Val::Px(10.0),
-                        min_width: Val::Px(400.0),
-                        max_height: Val::Percent(80.0),
-                        ..default()
-                    },
-                    BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
-                    BorderColor(Color::srgb(0.5, 0.5, 0.5)),
-                ))
-                .with_children(|parent| {
-                    // Title
-                    parent.spawn((
-                        Text::new("Items on Ground"),
-                        TextFont {
-                            font_size: 24.0,
-                            ..default()
-                        },
-                        TextColor(Color::WHITE),
-                    ));
-
-                    // Current weight display
-                    parent.spawn((
-                        Text::new(format!("Current Weight: {}/{}", current_weight, capacity.normal)),
-                        TextFont {
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.7, 0.7, 0.7)),
-                    ));
-
-                    // Item list
-                    parent
-                        .spawn((
-                            Node {
-                                flex_direction: FlexDirection::Column,
-                                row_gap: Val::Px(5.0),
-                                overflow: Overflow::scroll_y(),
-                                max_height: Val::Px(400.0),
-                                padding: UiRect::all(Val::Px(10.0)),
-                                ..default()
-                            },
-                            BackgroundColor(Color::srgb(0.1, 0.1, 0.1)),
-                            InspectItemList,
-                            InspectSelection { selected_index: 0 },
-                        ))
-                        .with_children(|parent| {
-                            for (index, item) in items.iter().enumerate() {
-                                let value_str = match item.value {
-                                    Some(v) => format!("Value: {}", v),
-                                    None => "Tool".to_string(),
-                                };
-                                let metal_str = if item.is_metal { " [Metal]" } else { "" };
-                                let item_text = format!(
-                                    "{}. {} (Weight: {}, {}){}",
-                                    index + 1,
-                                    item.name,
-                                    item.weight,
-                                    value_str,
-                                    metal_str
-                                );
-
-                                let bg_color = if index == 0 {
-                                    Color::srgb(0.3, 0.5, 0.3) // Highlighted (green)
-                                } else {
-                                    Color::srgb(0.1, 0.1, 0.1) // Normal
-                                };
-
-                                parent.spawn((
-                                    Node {
-                                        padding: UiRect::all(Val::Px(5.0)),
-                                        ..default()
-                                    },
-                                    BackgroundColor(bg_color),
-                                    InspectItemRow { index },
-                                ))
-                                .with_children(|parent| {
-                                    parent.spawn((
-                                        Text::new(item_text),
-                                        TextFont {
-                                            font_size: 18.0,
-                                            ..default()
-                                        },
-                                        TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                                    ));
-                                });
-                            }
-                        });
-
-                    // Help text
-                    parent.spawn((
-                        Text::new("W/S to select, E to pickup, ESC to close"),
-                        TextFont {
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.6, 0.6, 0.6)),
-                    ));
-                });
-        });
+    build_inspect_ui(
+        &mut commands,
+        &items,
+        0,
+        inventory.total_weight(),
+        capacity.normal,
+    );
 }
 
 /// Despawns the inspect UI when exiting InspectingItems phase
@@ -223,7 +174,7 @@ pub fn close_inspect_ui_system(
     }
 }
 
-/// Handles W/S key navigation in inspect UI
+/// Handles W/S and arrow navigation in inspect UI
 pub fn inspect_navigation_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut selection_query: Query<&mut InspectSelection>,
@@ -252,12 +203,15 @@ pub fn inspect_navigation_system(
 
     let max_index = ground_items.count() - 1;
 
-    // S = down, W = up (consistent with movement)
-    if keyboard.just_pressed(KeyCode::KeyS) {
+    // S = down, W = up (consistent with movement); arrows work too
+    let down = keyboard.just_pressed(KeyCode::KeyS) || keyboard.just_pressed(KeyCode::ArrowDown);
+    let up = keyboard.just_pressed(KeyCode::KeyW) || keyboard.just_pressed(KeyCode::ArrowUp);
+
+    if down {
         if selection.selected_index < max_index {
             selection.selected_index += 1;
         }
-    } else if keyboard.just_pressed(KeyCode::KeyW) {
+    } else if up {
         if selection.selected_index > 0 {
             selection.selected_index -= 1;
         }
@@ -357,6 +311,34 @@ pub fn update_inspect_ui_selection_system(
     }
 }
 
+/// Scrolls the selected row into view after navigation or rebuild.
+pub fn inspect_autoscroll_system(
+    selection_query: Query<&InspectSelection>,
+    mut scroll_area: Query<(&ComputedNode, &mut ScrollPosition), With<ModalScrollArea>>,
+    rows: Query<&InspectItemRow>,
+) {
+    let Ok(selection) = selection_query.single() else {
+        return;
+    };
+    let Ok((node, mut scroll)) = scroll_area.single_mut() else {
+        return;
+    };
+    let count = rows.iter().count();
+    if count == 0 {
+        return;
+    }
+    let content_height = node.content_size().y * node.inverse_scale_factor;
+    let view_height = node.size().y * node.inverse_scale_factor;
+    let row_height = content_height / count as f32;
+    scroll_selection_into_view(
+        &mut *scroll,
+        content_height,
+        view_height,
+        selection.selected_index,
+        row_height,
+    );
+}
+
 /// Rebuilds the inspect UI when ground items change (e.g., after pickup)
 pub fn rebuild_inspect_ui_system(
     mut commands: Commands,
@@ -376,12 +358,11 @@ pub fn rebuild_inspect_ui_system(
     };
 
     // Check if there are still items at player's position
-    let items = ground_items_query
+    let Some(items) = ground_items_query
         .iter()
         .find(|(pos, _)| pos.x == player_pos.x && pos.y == player_pos.y)
-        .map(|(_, ground_items)| &ground_items.items);
-
-    let Some(items) = items else {
+        .map(|(_, ground_items)| &ground_items.items)
+    else {
         return;
     };
 
@@ -399,121 +380,12 @@ pub fn rebuild_inspect_ui_system(
         commands.entity(entity).despawn();
     }
 
-    let current_weight = inventory.total_weight();
-
     // Respawn UI with updated item list
-    commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.7)),
-            InspectUiRoot,
-            ZIndex(100),
-        ))
-        .with_children(|parent| {
-            parent
-                .spawn((
-                    Node {
-                        flex_direction: FlexDirection::Column,
-                        padding: UiRect::all(Val::Px(20.0)),
-                        row_gap: Val::Px(10.0),
-                        min_width: Val::Px(400.0),
-                        max_height: Val::Percent(80.0),
-                        ..default()
-                    },
-                    BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
-                    BorderColor(Color::srgb(0.5, 0.5, 0.5)),
-                ))
-                .with_children(|parent| {
-                    parent.spawn((
-                        Text::new("Items on Ground"),
-                        TextFont {
-                            font_size: 24.0,
-                            ..default()
-                        },
-                        TextColor(Color::WHITE),
-                    ));
-
-                    parent.spawn((
-                        Text::new(format!("Current Weight: {}/{}", current_weight, capacity.normal)),
-                        TextFont {
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.7, 0.7, 0.7)),
-                    ));
-
-                    parent
-                        .spawn((
-                            Node {
-                                flex_direction: FlexDirection::Column,
-                                row_gap: Val::Px(5.0),
-                                overflow: Overflow::scroll_y(),
-                                max_height: Val::Px(400.0),
-                                padding: UiRect::all(Val::Px(10.0)),
-                                ..default()
-                            },
-                            BackgroundColor(Color::srgb(0.1, 0.1, 0.1)),
-                            InspectItemList,
-                            InspectSelection { selected_index: adjusted_selection },
-                        ))
-                        .with_children(|parent| {
-                            for (index, item) in items.iter().enumerate() {
-                                let value_str = match item.value {
-                                    Some(v) => format!("Value: {}", v),
-                                    None => "Tool".to_string(),
-                                };
-                                let metal_str = if item.is_metal { " [Metal]" } else { "" };
-                                let item_text = format!(
-                                    "{}. {} (Weight: {}, {}){}",
-                                    index + 1,
-                                    item.name,
-                                    item.weight,
-                                    value_str,
-                                    metal_str
-                                );
-
-                                let bg_color = if index == adjusted_selection {
-                                    Color::srgb(0.3, 0.5, 0.3)
-                                } else {
-                                    Color::srgb(0.1, 0.1, 0.1)
-                                };
-
-                                parent.spawn((
-                                    Node {
-                                        padding: UiRect::all(Val::Px(5.0)),
-                                        ..default()
-                                    },
-                                    BackgroundColor(bg_color),
-                                    InspectItemRow { index },
-                                ))
-                                .with_children(|parent| {
-                                    parent.spawn((
-                                        Text::new(item_text),
-                                        TextFont {
-                                            font_size: 18.0,
-                                            ..default()
-                                        },
-                                        TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                                    ));
-                                });
-                            }
-                        });
-
-                    parent.spawn((
-                        Text::new("W/S to select, E to pickup, ESC to close"),
-                        TextFont {
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(0.6, 0.6, 0.6)),
-                    ));
-                });
-        });
+    build_inspect_ui(
+        &mut commands,
+        &items,
+        adjusted_selection,
+        inventory.total_weight(),
+        capacity.normal,
+    );
 }
