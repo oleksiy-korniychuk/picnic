@@ -251,11 +251,6 @@ fn main() {
                 // Spawn/despawn UI based on mode changes while in base hub
                 handle_stash_ui_spawn_system,
                 handle_contracts_ui_spawn_system,
-            ).run_if(in_state(GameState::InBaseHub)),
-        )
-        .add_systems(
-            Update,
-            (
                 // Base Hub - navigation and item management
                 base_hub_navigation_system,
                 base_hub_move_item_system,
@@ -265,7 +260,13 @@ fn main() {
                 toggle_base_hub_mode_system,
                 enter_zone_from_base_system,
                 base_hub_escape_system,
-            ).run_if(in_state(GameState::InBaseHub)),
+            )
+                // Explicit order matters: handle_* UI spawn/despawn must run and
+                // flush before rebuild_stash_ui_system checks for an existing
+                // root, otherwise both may defer a spawn of the same screen and
+                // end up with two stacked UI roots (breaking get_single queries).
+                .chain()
+                .run_if(in_state(GameState::InBaseHub)),
         )
         .add_systems(
             Update,

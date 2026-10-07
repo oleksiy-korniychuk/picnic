@@ -79,12 +79,23 @@ pub fn spawn_stash_management_ui_system(
         return;
     }
 
+    spawn_stash_ui_with_selection(&mut commands, &run_inventory, &stash, BaseHubSelection::default());
+}
+
+/// Shared builder for the Stash Management screen. Both the initial spawn and
+/// the data-change rebuild path go through this so a rebuilt UI is always
+/// identical to a freshly spawned one (the previous rebuild path was an
+/// unimplemented stub that rendered only "UI Rebuilding...").
+fn spawn_stash_ui_with_selection(
+    commands: &mut Commands,
+    run_inventory: &RunInventory,
+    stash: &Stash,
+    selection: BaseHubSelection,
+) {
     // Calculate weights
     let run_weight = run_inventory.total_weight();
     let stash_weight = stash.total_weight();
 
-    // Initialize selection state
-    let selection = BaseHubSelection::default();
     let selection_for_closure = selection; // Copy for use in closure
 
     // Create full-screen modal UI
@@ -358,7 +369,7 @@ pub fn despawn_stash_management_ui_system(
 
 /// Handles spawning/despawning stash UI based on mode changes
 pub fn handle_stash_ui_spawn_system(
-    commands: Commands,
+    mut commands: Commands,
     current_mode: Res<State<BaseHubMode>>,
     ui_query: Query<Entity, With<StashManagementUiRoot>>,
     run_inventory: Res<RunInventory>,
@@ -371,8 +382,11 @@ pub fn handle_stash_ui_spawn_system(
         // Need to spawn
         spawn_stash_management_ui_system(commands, ui_query, run_inventory, stash);
     } else if !should_show && ui_exists {
-        // Need to despawn - can't call here due to mut commands
-        // Will be handled by cleanup on state exit
+        // Despawn when switching away from StashManagement mode (e.g. Tab to
+        // Contracts) - otherwise the stash screen lingers under the new mode's UI
+        for entity in ui_query.iter() {
+            commands.entity(entity).despawn_recursive();
+        }
     }
 }
 
@@ -738,6 +752,13 @@ pub fn rebuild_stash_ui_system(
         return;
     }
 
+    // If no UI exists yet, leave spawning to handle_stash_ui_spawn_system
+    // (which runs first via explicit chaining in main.rs). Rebuilding here
+    // could race it and double-spawn the screen root.
+    if ui_query.iter().next().is_none() {
+        return;
+    }
+
     // Save current selection
     let saved_selection = selection_query.get_single().map(|s| BaseHubSelection {
         active_panel: s.active_panel,
@@ -776,49 +797,7 @@ pub fn rebuild_stash_ui_system(
     }
 
     // Spawn new UI with clamped selection
-    spawn_stash_management_ui_with_selection(commands, run_inventory, stash, clamped_selection);
-}
-
-/// Helper to spawn stash management UI with a specific selection state
-fn spawn_stash_management_ui_with_selection(
-    mut commands: Commands,
-    run_inventory: Res<RunInventory>,
-    stash: Res<Stash>,
-    selection: BaseHubSelection,
-) {
-    // This is a copy of spawn_stash_management_ui_system but uses the provided selection
-    // Calculate weights
-    let run_weight = run_inventory.total_weight();
-    let stash_weight = stash.total_weight();
-
-    // Create full-screen modal UI
-    commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.8)),
-            StashManagementUiRoot,
-            selection,
-            ZIndex(100),
-        ))
-        .with_children(|parent| {
-            // [Rest of UI spawning code - same as spawn_stash_management_ui_system]
-            // For now, just create a placeholder - we'll need to refactor to avoid duplication
-            parent.spawn((
-                Text::new("UI Rebuilding..."),
-                TextFont {
-                    font_size: 24.0,
-                    ..default()
-                },
-                TextColor(Color::WHITE),
-            ));
-        });
+    spawn_stash_ui_with_selection(&mut commands, &run_inventory, &stash, clamped_selection);
 }
 
 /// Handles Enter/E key to move items between RunInventory and Stash
