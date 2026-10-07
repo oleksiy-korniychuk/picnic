@@ -12,11 +12,11 @@ sources:
     title: Commit fc71ea6 - stash system + base hub item management ("might be untested" per commit message)
     author: human:oleksiy
     last_modified: 2026-07-11T23:15:14Z
-  - id: bugfix-working-tree
-    resource: local working tree (uncommitted)
-    title: Bug fixes to contract_ui.rs / base_hub_ui.rs / main.rs on top of fc71ea6
+  - id: bugfix-commits
+    resource: https://github.com/oleksiy-korniychuk/picnic/commit/8235845
+    title: Commits 8235845 (extraction wipe fix) + 9e3995a (rebuild/double-spawn fix) - the bug fixes below, committed and pushed
     author: agent:pi/openai/qwen3.8-27b
-    last_modified: 2026-10-06T05:55:00Z
+    last_modified: 2026-10-07T04:45:00Z
   - id: roadmap
     resource: /roadmap/v0.1-remaining.md
     title: v0.1 remaining work
@@ -29,7 +29,19 @@ sources:
 
 # Implemented
 
-Everything from [commit fc71ea6](https://github.com/oleksiy-korniychuk/picnic/commit/fc71ea6)[^commit-fc71ea6] (stash resources, data-driven stash screen, zone/base item handoff, permadeath wiring) plus the two bug fixes below, applied on the working tree (uncommitted as of this snapshot).[^bugfix-working-tree]
+Everything from [commit fc71ea6](https://github.com/oleksiy-korniychuk/picnic/commit/fc71ea6)[^commit-fc71ea6] (stash resources, data-driven stash screen, zone/base item handoff, permadeath wiring) plus the two bug fixes below (committed as 8235845 and 9e3995a).[^bugfix-commits]
+
+## Meta loop verified as working (2026-10-07)
+
+The full repeatable loop **zone → loot → extract → base hub (stash) → re-enter** already works end-to-end with no new code needed - verified live with a scripted full-loop run (`/tmp/meta_loop.sh`):
+
+* Run 1: pickup Battery, extract → `Saved 12 items ... (weight: 63)`, state preserved.
+* Base hub: move a Bolt to stash (stash = 1).
+* Re-enter via Space in the Stash Management screen: `Player spawned with 11 items ... (weight: 62)` - exactly 12 minus the stashed Bolt, proving RunInventory/stash persistence across runs.
+* Run 2: the Battery tile is still empty (no loot respawn - map persists), Rust Slag pickup works, second extraction → `Saved 12 items ... (weight: 67)`.
+* Death in run 3 (gravitational anomaly) → `PERMADEATH: Reset stash and RunInventory to starter loadout` → auto-restart with a fresh starter loadout; app restart is also a full reset (state is in-memory only).
+
+One latent bug fixed while verifying: `Stash` derived `Default` gave `capacity: 0` instead of the designed 1000 (`init_resource` never calls `Stash::new()`); now a manual `Default` impl carries 1000, with unit tests (`cargo test`, 3 passing).
 
 ## Bug fixes (2026-10-06)
 
@@ -61,6 +73,7 @@ Per the [roadmap](/roadmap/v0.1-remaining.md) and [progression design](/design/p
   * **F2 is a real editor toggle now**: F2 out of the Zone → editor (1 spawn, 0 permadeath), F2 back → respawn (2 spawns, 0 permadeath). Pre-fix this bounced straight back into a fresh run.
   * **Death still triggers permadeath**: scripted walk into the gravitational anomaly at (5,11) (adjacent-tile pull → 5-turn timer → bounce W/S in range). Log: `DEATH: Player was crushed by gravitational anomaly!` → on death-screen E: `PERMADEATH: Reset stash and RunInventory to starter loadout` → `Auto-restarting game` → `Player spawned with 11 items ... weight: 60` (starter loadout).
   * Graceful exit from base hub via ESC (`Quitting game from base hub`), no panics anywhere.
+  * **Full meta loop (2026-10-07)**: three consecutive runs in one session with stash deposits between them - spawn weights 60 → 62 → 66 match RunInventory minus stash plus pickups; Battery picked exactly once across all runs (no respawn); death reset and relaunch reset both leave a clean starter state. (Details under [Implemented](#implemented).)
 * **Environment**: rustup stable at `~/.cargo/bin`; Nix not installed on this machine (native toolchain path); `xdotool` + Pillow available for scripted validation; see [AGENTS.md](../../../AGENTS.md) for the package-install rule and machine notes. Harness footguns learned this session: query window geometry per run (the WM opened the window at (60,122) instead of (50,82) once); picking up the *last* item on a tile auto-closes the inspect UI, so a scripted ESC afterwards would hit the global quit handler.
 
 # Next steps
