@@ -1,3 +1,12 @@
+---
+type: Reference
+title: POC design document (source)
+description: Verbatim mirror of POC.md - the original POC design document with implementation status and UI standards.
+resource: /references/source-docs/POC.md
+tags: [picnic, source-doc, design, systems, reference]
+generated: { by: pi/glm-5.3-flash, at: 2026-10-05T23:23:17Z }
+---
+
 # POC Design Document
 
 ## Overview

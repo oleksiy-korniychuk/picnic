@@ -1,3 +1,12 @@
+---
+type: Reference
+title: Design review and reuse analysis (source)
+description: Verbatim mirror of analysis.md - the technical reusability analysis and game design critique with inline author answers.
+resource: /references/source-docs/analysis.md
+tags: [picnic, source-doc, design, architecture, reference]
+generated: { by: pi/glm-5.3-flash, at: 2026-10-05T23:23:17Z }
+---
+
 Excellent! I have a clear picture of your codebase. Let me give you both the technical reusability analysis and the game design critique you asked for.
 
 # 🎮 Technical Reusability Analysis
