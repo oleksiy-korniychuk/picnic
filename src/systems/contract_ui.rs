@@ -432,8 +432,12 @@ pub fn despawn_death_ui_system(
 pub fn close_death_ui_system(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut next_state: ResMut<NextState<GameState>>,
+    mut auto_restart: ResMut<AutoRestartFlag>,
 ) {
     if keyboard.just_pressed(KeyCode::KeyE) {
+        // Mark this transition as a permadeath so prepare_restart_system
+        // (OnExit(Running)) performs the full stash/inventory wipe.
+        auto_restart.permadeath = true;
         // Transition to Editing which will trigger reset and then back to Running
         next_state.set(GameState::Editing);
     }
@@ -474,10 +478,19 @@ pub fn detect_exit_system(
 #[derive(Resource, Default)]
 pub struct AutoRestartFlag {
     pub should_restart: bool,
+    /// Set when the run ended via death (permadeath reset required).
+    /// Extraction and editor toggles leave Running WITHOUT this flag,
+    /// so stash/RunInventory/contracts survive those transitions.
+    pub permadeath: bool,
 }
 
 /// System that triggers when entering Editing mode from a death/exit
 /// Sets a flag to auto-restart the game
+///
+/// Only performs the permadeath wipe when the transition came from the death
+/// screen (marked via AutoRestartFlag::permadeath). Extraction and the F2
+/// editor toggle also exit GameState::Running but must preserve the stash,
+/// RunInventory (extracted loot) and active contracts.
 pub fn prepare_restart_system(
     mut auto_restart: ResMut<AutoRestartFlag>,
     mut contract_system: ResMut<ContractSystem>,
@@ -486,6 +499,15 @@ pub fn prepare_restart_system(
     mut stash: ResMut<Stash>,
     mut run_inventory: ResMut<RunInventory>,
 ) {
+    // Consume the death marker; without it this exit is extraction or the
+    // editor toggle, so leave all run state untouched.
+    let permadeath = auto_restart.permadeath;
+    auto_restart.permadeath = false;
+    if !permadeath {
+        info!("Leaving the Zone - stash, RunInventory and contracts preserved");
+        return;
+    }
+
     // Reset game state
     contract_system.reset();
     turn_counter.0 = 0;
