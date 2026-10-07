@@ -11,3 +11,4 @@ Specification of the implemented POC systems: the tilemap editor, the turn-based
 * [Bolt throwing](/systems/bolt-throwing.md) `live` - Bolt-based anomaly detection: controls, ballistics, and feedback.
 * [HUD](/systems/hud.md) `live` - Turn counter, weight display, and message log.
 * [UI standards](/systems/ui-standards.md) `live` - Typography, text labels, modal styling, and color palette.
+* [UI kit](/systems/ui-kit.md) `live` - Zellij-inspired keyboard navigation: context key bar, shared modal builder, scrolling, quit confirmation.

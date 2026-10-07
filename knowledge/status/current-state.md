@@ -50,6 +50,18 @@ One latent bug fixed while verifying: `Stash` derived `Default` gave `capacity: 
    * `handle_stash_ui_spawn_system` now despawns the stash screen when Tab switches away from StashManagement mode (it previously did nothing, leaving the stash UI stacked under the Contracts screen).
    * The base hub Update systems are `.chain()`ed in `main.rs` (spawn handlers → navigation → move → highlighting → rebuild → mode toggle/enter/exit). Before, `handle_stash_ui_spawn_system` and `rebuild_stash_ui_system` were unordered, could both defer a spawn of the screen root, and end up with two stacked UI roots - live-confirmed pre-fix (double-dark overlay, `E` move silently no-oped on `get_single_mut` failure). `rebuild_stash_ui_system` additionally bails when no root exists.
 
+## UI/UX overhaul (2026-10-07, committed)
+
+Keyboard-first navigation overhaul, validated live end-to-end (all 10 scripted checks pass - see `scripts/ui_final.sh`):
+
+1. **Key bar** (Zellij-inspired Layer 1): full-width bottom strip with `[key] action` chips per context (editor / zone / base hub stash / contracts); self-healing context maintenance; HUD restacked above it.
+2. **Shared modal kit** (`src/systems/ui_kit.rs`): all five in-game modals (briefing, extraction, death, inspect, inventory) plus the base hub screens rebuilt on one responsive scaffolding - definite ideal width with viewport caps, scrollable content, mouse-wheel scrolling (hit-tested), keyboard selection auto-scroll (measured, no hardcoded row heights), footer hint rows, arrow keys alongside W/S everywhere.
+3. **ESC hardening**: instant app-quit replaced by a confirm-quit modal in all top-level contexts; briefing ESC skips, extraction ESC cancels (stays in the Zone, nothing saved).
+4. **Input gating**: `no_modal_open` (keys on the quit-confirm root only - phase modals are phase-scoped, base hub screens must not gate themselves) + `zoom_allowed` (wheel zooms only where the wheel is not scrolling UI).
+5. **Diagnostics**: F10 UI-tree dump (entity, computed position/size) - the geometric oracle for layout validation. Pixel probing is unreliable: Bevy blends UI in linear space over an sRGB framebuffer, so dimmed-floor gray is nearly identical to the panel color.
+
+See [UI kit](/systems/ui-kit.md) for the full spec. Known follow-ups: the quit-confirm modal's footer hints and the small-window stash scroll behavior are the least exercised paths; contract screen still placeholder (roadmap item 4).
+
 # Known bugs
 
 None currently open. (The two bugs above were reproduced, fixed, and re-verified the same day.)

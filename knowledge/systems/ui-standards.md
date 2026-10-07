@@ -41,6 +41,12 @@ All modal screens (Mission Briefing, Extraction, Death, Inspect, Inventory) use 
 * Modal panels: dark gray background (rgb 0.15,0.15,0.15) with gray borders; minimum width 500px, maximum width 700px; padding 30-40px; row gap 15-20px.[^poc]
 * The base hub screens extend this to 700-900px panels with 40px padding and a 20px row gap (see [progression](/design/progression.md)).[^progression]
 
+# Key hints (2026-10)
+
+All key hints use the `[key] action` chip format everywhere (key bar, modal footers, panel footers): key name in brackets, yellow (0.9,0.9,0.3); action label dim gray (0.65,0.65,0.65). Never show a binding the context does not actually handle.
+
+All modals, the key bar, and scrolling are built by the shared [UI kit](/systems/ui-kit.md) - do not hand-roll modal scaffolding. Panel sizing is responsive (px ideal width, viewport-unit caps); see the kit doc for current per-modal sizes.
+
 # Color palette
 
 * Success/positive: green (0.3, 0.9, 0.3) or (0.6, 0.9, 0.6).[^poc]
