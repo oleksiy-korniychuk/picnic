@@ -3,18 +3,26 @@ use crate::components::item::Item;
 use crate::resources::game_grid::ItemType;
 
 /// Persistent storage at base (survives runs until death)
-#[derive(Resource, Debug, Default)]
+#[derive(Resource, Debug)]
 pub struct Stash {
     pub items: Vec<Item>,
     pub capacity: u32,
 }
 
-impl Stash {
-    pub fn new() -> Self {
+impl Default for Stash {
+    /// init_resource uses this, so the default must carry the designed
+    /// 1000 capacity (previously a derived Default gave capacity 0).
+    fn default() -> Self {
         Self {
             items: Vec::new(),
             capacity: 1000,
         }
+    }
+}
+
+impl Stash {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn add_item(&mut self, item: Item) {
@@ -118,5 +126,25 @@ impl RunInventory {
 
         // Add Metal Detector
         self.items.push(ItemType::MetalDetector.into());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_stash_has_designed_capacity() {
+        // init_resource::<Stash>() uses Default; a derived Default would give
+        // capacity 0 and silently break any future capacity enforcement.
+        assert_eq!(Stash::default().capacity, 1000);
+        assert!(Stash::default().is_empty());
+    }
+
+    #[test]
+    fn run_inventory_default_is_starter_loadout() {
+        let inv = RunInventory::default();
+        assert_eq!(inv.count(), 11);
+        assert_eq!(inv.total_weight(), 60);
     }
 }
