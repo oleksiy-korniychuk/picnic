@@ -298,6 +298,9 @@ pub fn spawn_modal_ex(
                                 overflow: Overflow::scroll_y(),
                                 ..default()
                             },
+                            // bevy 0.16: ScrollPosition must be inserted
+                            // explicitly on scrollable nodes.
+                            ScrollPosition::DEFAULT,
                             ModalScrollArea,
                         ))
                         .with_children(build_content);
@@ -667,7 +670,16 @@ pub fn modal_wheel_scroll_system(
 /// and computed size. Bound to F10 for validating modal geometry.
 pub fn debug_ui_dump_system(
     keyboard: Res<ButtonInput<KeyCode>>,
-    mut nodes: Query<(Entity, &GlobalTransform, &ComputedNode, &ChildOf), With<Node>>,
+    mut nodes: Query<
+        (
+            Entity,
+            &GlobalTransform,
+            &ComputedNode,
+            &ChildOf,
+            Option<&ScrollPosition>,
+        ),
+        With<Node>,
+    >,
     names: Query<&Name>,
 ) {
     if !keyboard.just_pressed(KeyCode::F10) {
@@ -676,7 +688,7 @@ pub fn debug_ui_dump_system(
     info!("==== UI TREE DUMP ====");
     let mut list: Vec<_> = nodes
         .iter()
-        .map(|(e, t, n, _p)| {
+        .map(|(e, t, n, _p, scroll)| {
             let pos = t.translation().truncate();
             let inv = n.inverse_scale_factor;
             (
@@ -685,14 +697,22 @@ pub fn debug_ui_dump_system(
                 (n.size().x * inv, n.size().y * inv),
                 n.content_size().x * inv,
                 n.content_size().y * inv,
+                scroll.map(|s| s.offset_y).unwrap_or(f32::NAN),
             )
         })
         .collect();
-    list.sort_by_key(|(_, pos, _, _, _)| (pos.1 as i32, pos.0 as i32));
-    for (e, pos, size, cw, ch) in list {
+    list.sort_by_key(|(_, pos, _, _, _, _)| (pos.1 as i32, pos.0 as i32));
+    for (e, pos, size, cw, ch, scroll) in list {
         let name = names.get(e).map(|n| n.as_str()).unwrap_or("-");
-        info!("  e={:?} pos=({:.0},{:.0}) size=({:.0}x{:.0}) content=({:.0}x{:.0}) name={}",
-              e, pos.0, pos.1, size.0, size.1, cw, ch, name);
+        let scroll_str = if scroll.is_nan() {
+            String::new()
+        } else {
+            format!(" scroll_y={:.0}", scroll)
+        };
+        info!(
+            "  e={:?} pos=({:.0},{:.0}) size=({:.0}x{:.0}) content=({:.0}x{:.0}){} name={}",
+            e, pos.0, pos.1, size.0, size.1, cw, ch, scroll_str, name
+        );
     }
     info!("==== END UI TREE DUMP ====");
 }

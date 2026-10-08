@@ -203,18 +203,23 @@ pub fn inspect_navigation_system(
 
     let max_index = ground_items.count() - 1;
 
-    // S = down, W = up (consistent with movement); arrows work too
+    // S = down, W = up (consistent with movement); arrows work too.
+    // Navigation wraps around at both ends.
     let down = keyboard.just_pressed(KeyCode::KeyS) || keyboard.just_pressed(KeyCode::ArrowDown);
     let up = keyboard.just_pressed(KeyCode::KeyW) || keyboard.just_pressed(KeyCode::ArrowUp);
 
     if down {
-        if selection.selected_index < max_index {
-            selection.selected_index += 1;
-        }
+        selection.selected_index = if selection.selected_index >= max_index {
+            0
+        } else {
+            selection.selected_index + 1
+        };
     } else if up {
-        if selection.selected_index > 0 {
-            selection.selected_index -= 1;
-        }
+        selection.selected_index = if selection.selected_index == 0 {
+            max_index
+        } else {
+            selection.selected_index - 1
+        };
     }
 }
 

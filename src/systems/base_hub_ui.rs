@@ -143,6 +143,7 @@ fn spawn_stash_ui_with_selection(
                                 overflow: Overflow::scroll_y(),
                                 ..default()
                             },
+                            ScrollPosition::DEFAULT,
                             BackgroundColor(COL_PANEL_INNER),
                             BorderColor(Color::srgb(0.3, 0.5, 0.3)),
                             ModalScrollArea,
@@ -204,6 +205,7 @@ fn spawn_stash_ui_with_selection(
                                 overflow: Overflow::scroll_y(),
                                 ..default()
                             },
+                            ScrollPosition::DEFAULT,
                             BackgroundColor(COL_PANEL_INNER),
                             BorderColor(COL_BORDER),
                             ModalScrollArea,
@@ -529,6 +531,9 @@ pub fn enter_zone_from_base_system(
 // global ui_kit::escape_menu_system (ESC opens a quit confirmation).
 
 /// Scrolls the active panel's list so the selected row stays visible.
+/// The stash screen has TWO scroll areas (run inventory + stash), so this
+/// iterates and scrolls only the one matching the active panel. Runs on
+/// selection changes only, so it never fights mouse-wheel scrolling.
 pub fn base_hub_autoscroll_system(
     mut lists: Query<
         (
@@ -539,40 +544,37 @@ pub fn base_hub_autoscroll_system(
         ),
         With<ModalScrollArea>,
     >,
-    selection_query: Query<&BaseHubSelection, With<StashManagementUiRoot>>,
+    selection_query: Query<(&BaseHubSelection, &StashManagementUiRoot), Changed<BaseHubSelection>>,
     run_rows: Query<&RunInventoryItemRow>,
     stash_rows: Query<&StashItemRow>,
 ) {
-    let Ok(selection) = selection_query.get_single() else {
+    let Ok((selection, _root)) = selection_query.get_single() else {
         return;
     };
-    let Ok((node, mut scroll, is_run, is_stash)) = lists.get_single_mut() else {
-        return;
-    };
-
-    // Only the panel matching the active selection scrolls.
-    let (count, selected) = match (is_run.is_some(), is_stash.is_some()) {
-        (true, false) if selection.active_panel == PanelSide::RunInventory => {
-            (run_rows.iter().count(), selection.selected_index)
+    for (node, mut scroll, is_run, is_stash) in lists.iter_mut() {
+        let (count, selected) = match (is_run.is_some(), is_stash.is_some()) {
+            (true, false) if selection.active_panel == PanelSide::RunInventory => {
+                (run_rows.iter().count(), selection.selected_index)
+            }
+            (false, true) if selection.active_panel == PanelSide::Stash => {
+                (stash_rows.iter().count(), selection.selected_index)
+            }
+            _ => continue, // not the active panel
+        };
+        if count == 0 {
+            continue;
         }
-        (false, true) if selection.active_panel == PanelSide::Stash => {
-            (stash_rows.iter().count(), selection.selected_index)
-        }
-        _ => return,
-    };
-    if count == 0 {
-        return;
+        let content_height = node.content_size().y * node.inverse_scale_factor;
+        let view_height = node.size().y * node.inverse_scale_factor;
+        let row_height = content_height / count as f32;
+        scroll_selection_into_view(
+            &mut *scroll,
+            content_height,
+            view_height,
+            selected,
+            row_height,
+        );
     }
-    let content_height = node.content_size().y * node.inverse_scale_factor;
-    let view_height = node.size().y * node.inverse_scale_factor;
-    let row_height = content_height / count as f32;
-    scroll_selection_into_view(
-        &mut *scroll,
-        content_height,
-        view_height,
-        selected,
-        row_height,
-    );
 }
 
 /// Cleanup system to despawn all base hub UIs when exiting the base hub state
@@ -651,20 +653,31 @@ pub fn base_hub_navigation_system(
     let run_count = run_inventory.count();
     let stash_count = stash.count();
 
-    // W/S: Navigate up/down within current panel
-    if keyboard.just_pressed(KeyCode::KeyW) {
-        info!("[BASE HUB] Key pressed: W (navigate up)");
-        if selection.selected_index > 0 {
-            selection.selected_index -= 1;
-        }
-    } else if keyboard.just_pressed(KeyCode::KeyS) {
-        info!("[BASE HUB] Key pressed: S (navigate down)");
+    // W/S (or arrows): navigate up/down within current panel, wrapping
+    // around at the ends.
+    let up = keyboard.just_pressed(KeyCode::KeyW) || keyboard.just_pressed(KeyCode::ArrowUp);
+    let down = keyboard.just_pressed(KeyCode::KeyS) || keyboard.just_pressed(KeyCode::ArrowDown);
+
+    if up || down {
+        info!("[BASE HUB] Key pressed: {} (navigate {})", if up { "W" } else { "S" }, if up { "up" } else { "down" });
         let max_index = match selection.active_panel {
             PanelSide::RunInventory => run_count.saturating_sub(1),
             PanelSide::Stash => stash_count.saturating_sub(1),
         };
-        if selection.selected_index < max_index {
-            selection.selected_index += 1;
+        if max_index > 0 {
+            if down {
+                selection.selected_index = if selection.selected_index >= max_index {
+                    0
+                } else {
+                    selection.selected_index + 1
+                };
+            } else {
+                selection.selected_index = if selection.selected_index == 0 {
+                    max_index
+                } else {
+                    selection.selected_index - 1
+                };
+            }
         }
     }
 
